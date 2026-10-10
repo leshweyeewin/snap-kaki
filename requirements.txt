@@ -1,0 +1,12 @@
+# Pinned against versions resolved in the deploy env on 2026-10-10.
+# Bump deliberately: ADK's agent/runner API moves between majors.
+#
+# fastapi is held at 0.141.x on purpose. google-adk 2.11.0 caps
+# opentelemetry-api at <=1.42.1; fastapi >=0.143 requires >=1.44, which makes
+# the two unresolvable. Raise fastapi only when ADK relaxes that cap.
+google-adk==2.11.0
+google-genai==2.29.0
+google-cloud-firestore==2.34.1
+fastapi==0.141.1
+uvicorn[standard]==0.54.0
+python-multipart==0.0.32

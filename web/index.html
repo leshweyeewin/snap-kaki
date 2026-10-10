@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<meta name="description" content="Point your phone at a confusing form and get one clear next step.">
+<title>SnapKaki</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar">
+  <h1>SnapKaki</h1>
+  <label class="lang">
+    <span class="sr-only">Language</span>
+    <select id="language" aria-label="Language"></select>
+  </label>
+</header>
+
+<main id="main">
+
+  <!-- Start -->
+  <section id="start" class="screen">
+    <p class="lede">
+      Point your camera at the form. I'll tell you what it's asking,
+      one step at a time.
+    </p>
+
+    <label class="shutter" for="camera">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/>
+        <circle cx="12" cy="13" r="3.6"/>
+      </svg>
+      <span>Point at the form</span>
+    </label>
+    <input id="camera" type="file" accept="image/*" capture="environment" hidden>
+
+    <button type="button" class="link" id="pick-shot">
+      or choose a screenshot
+    </button>
+    <input id="upload" type="file" accept="image/*" hidden>
+
+    <p class="privacy">
+      Your details stay on the form. SnapKaki reads what the form
+      <em>asks</em>, never what you write in it.
+    </p>
+  </section>
+
+  <!-- Working -->
+  <section id="work" class="screen" hidden>
+    <div id="card" class="card" aria-live="polite">
+      <p class="card-step" id="card-step"></p>
+      <p class="card-why" id="card-why" hidden></p>
+      <p class="card-sources" id="card-sources" hidden></p>
+    </div>
+
+    <div class="actions" id="actions">
+      <button type="button" class="primary" id="did-it" hidden></button>
+      <button type="button" class="secondary" id="explain" hidden>
+        What does this mean?
+      </button>
+      <button type="button" class="secondary" id="family" hidden>
+        Ask my family
+      </button>
+      <label class="secondary as-button" for="camera-again">Take another photo</label>
+      <input id="camera-again" type="file" accept="image/*" capture="environment" hidden>
+    </div>
+
+    <h2 class="list-title">This form asks for</h2>
+    <ul id="fields" class="fields"></ul>
+  </section>
+
+</main>
+
+<!-- Family hand-off -->
+<dialog id="family-dialog">
+  <h2 id="family-subject">Message for your family</h2>
+  <p class="dialog-note">
+    SnapKaki doesn't send this. Read it, then send it yourself.
+  </p>
+  <textarea id="family-message" rows="6" readonly></textarea>
+  <div class="dialog-actions">
+    <button type="button" class="primary" id="copy-message">Copy message</button>
+    <button type="button" class="secondary" id="close-family">Close</button>
+  </div>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<div id="busy" class="busy" hidden>
+  <div class="spinner" aria-hidden="true"></div>
+  <p id="busy-text">Reading the form…</p>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
