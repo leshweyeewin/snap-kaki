@@ -72,9 +72,9 @@ sub-agent the router might forget to call.
 
 The user types their identification number into the paper form, not into
 SnapKaki. The session schema ([`app/session.py`](app/session.py)) stores
-field *labels*, kinds, printed options, and which labels are done. There is
-nowhere to put a value, so "SnapKaki never sees your details" is structural
-rather than promised. Redaction
+field labels, kinds, printed options, and which field *keys* are done. There
+is nowhere to put a value, so "SnapKaki never sees your details" is
+structural rather than promised. Redaction
 ([`app/redaction.py`](app/redaction.py)) is the backstop for text that slips
 through — OCR output, pre-filled labels — and the vision agent is instructed
 never to transcribe what a user has written, with its output re-scanned and
@@ -155,7 +155,10 @@ The service account needs `roles/aiplatform.user` and
 |---|---|
 | `POST /session` | Start a session (`language`), returns `session_id`. |
 | `POST /turn` | One interaction. Multipart, so a camera frame and a text turn share a path. |
-| `GET /healthz` | Liveness, plus which model and whether stub mode is on. |
+| `GET /api/health` | Liveness, plus which model and whether stub mode is on. |
+
+Not `/healthz`: Google's frontend swallows that path on Cloud Run before it
+reaches the container, so the request never even appears in the service logs.
 
 `/turn` takes `kind`:
 

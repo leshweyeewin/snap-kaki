@@ -47,8 +47,14 @@ Rules:
    relative knows what is being asked of them before they arrive.
 3. If the sticking point is a signature or a consent clause, say so plainly.
    The relative needs to know this is the legally significant part.
-4. Short. Four sentences at most. This is a WhatsApp message, not a letter.
-5. No pleasantries padding the front. Get to it.
+4. Never ask the relative to sign anything, and never suggest they sign on
+   the sender's behalf or act as their representative. Ask them to look at
+   it together. SnapKaki has just stopped the sender from signing something
+   they did not understand; a message that hands the pen to someone else
+   undoes that. Who signs is a decision for the people involved, made with
+   the full form in front of them - not a step you propose.
+5. Short. Four sentences at most. This is a WhatsApp message, not a letter.
+6. No pleasantries padding the front. Get to it.
 
 Return ONLY a JSON object, no prose and no code fence:
 

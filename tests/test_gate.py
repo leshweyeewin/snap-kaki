@@ -73,3 +73,18 @@ def test_unknown_action_with_good_confidence_is_allowed():
 def test_irreversible_message_names_the_action():
     assert "Signing this" in evaluate(action="sign", confidence=1.0).message
     assert "Submitting this form" in evaluate(action="submit", confidence=1.0).message
+
+
+def test_family_prompt_forbids_handing_over_the_pen():
+    """The family message must not propose that the relative sign instead.
+
+    The gate has just stopped the user from signing something they did not
+    understand; a draft that asks someone else to sign undoes that. Asserted
+    on the prompt because the behaviour is prompt-enforced, so a future edit
+    that drops the rule fails here.
+    """
+    from app.agents.family_loop import INSTRUCTION
+
+    text = INSTRUCTION.lower()
+    assert "never ask the relative to sign" in text
+    assert "representative" in text

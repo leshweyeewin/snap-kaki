@@ -67,8 +67,12 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="SnapKaki", version="0.1.0", lifespan=lifespan)
 
 
-@app.get("/healthz")
-async def healthz() -> dict:
+# Not /healthz: Google's frontend swallows that path before it reaches the
+# container on Cloud Run. The request never appears in the service logs, and
+# the 404 you get back is Google's, not Starlette's. Namespaced under /api
+# so it also cannot collide with the static mount below.
+@app.get("/api/health")
+async def health() -> dict:
     return {"ok": True, "stub": config.USE_STUB, "model": config.GEMINI_MODEL}
 
 

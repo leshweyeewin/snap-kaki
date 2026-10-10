@@ -43,10 +43,17 @@ def _keys(client, sid):
     return {f["label"]: f["key"] for f in body["fields"]}
 
 
-def test_healthz(client):
-    body = client.get("/healthz").json()
+def test_health(client):
+    body = client.get("/api/health").json()
     assert body["ok"] is True
     assert body["stub"] is True
+
+
+def test_health_is_not_on_the_path_google_swallows(client):
+    """Regression: /healthz never reaches the container on Cloud Run -
+    Google's frontend returns its own 404 and nothing is logged. Keep the
+    health check off that path."""
+    assert client.get("/healthz").status_code == 404
 
 
 def test_session_create_returns_languages(client):
