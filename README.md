@@ -160,10 +160,17 @@ The service account needs `roles/aiplatform.user` and
 `/turn` takes `kind`:
 
 - `scan` — image attached; read the form, then give the next step
-- `ask` — explain `field_label`, optionally answering `question`
-- `done` — the user finished `field_label`; give the next step
+- `ask` — explain `field_key`, optionally answering `question`
+- `done` — the user finished `field_key`; give the next step
 - `next` — just give the next step
 - `family` — draft the message asking a relative for help
+
+Fields are addressed by `field_key` (the `key` in a scan's field list), never
+by label. Labels are not unique: the real form carries "Name (in BLOCK
+LETTERS, as in NRIC)" and "Mobile Number" twice, once in Section 1A for the
+applicant and again in Section 1B for a family member. Keying off the label
+ticked both at once — caught by running the live vision agent against the
+published PDF, and now covered by a regression test.
 
 ---
 
@@ -178,11 +185,26 @@ refuse-when-unsure behaviour is what makes the breadth safe.
 
 ### A note on the real CHAS form
 
-The real form has an **interpreter section**: a place for someone to sign
-confirming they read and explained the form to a signatory who does not read
+The corpus is built against the **Dec 2025** revision, downloaded from
+chas.sg and read field by field. Worth knowing if you are working from older
+notes: that revision differs from the Jan 2023 one in ways that matter.
+Dwelling Type no longer breaks down by room count — it is HDB Flat / Private
+Housing / Institution / Others. Rental Status reads "Not Rented (e.g. bought
+or owned)" rather than "Owned". And the declaration is **Section 2B**, not
+Clause 11. Re-check the corpus against the PDF if chas.sg publishes again.
+
+Two things did survive the revision, and both are load-bearing for the pitch.
+
+There is still **no income field** — eligibility is assessed from IRAS and
+CPF records you consent to in Section 2B, or from the Annual Value of the
+home where a household has no income. Any "type your salary here" step would
+be a scripted lie about the real form.
+
+And the form still has an **interpreter line**: Section 3 asks for the name,
+NRIC and contact number of an interpreter where the signatory does not read
 English. The government already accepts that these forms cannot be completed
 unaided by everyone who needs them, and built a human assist layer into the
-paper. SnapKaki is the always-on digital version of that section — with the
+paper. SnapKaki is the always-on digital version of that line — with the
 honest difference that a human interpreter can witness a signature and
 software cannot. Which is exactly where the gate stops.
 

@@ -16,8 +16,8 @@ const state = {
   language: "en",
   fields: [],
   completed: [],
-  current: null,     // label of the field the current step is about
-  lastStop: null,    // { reason, label } for the family hand-off
+  current: null,     // key of the field the current step is about
+  lastStop: null,    // { reason, key } for the family hand-off
 };
 
 /* --- plumbing ----------------------------------------------------------- */
@@ -127,13 +127,13 @@ function renderActions(result) {
   // "I've done this" only makes sense for a step the user can act on, and
   // must never appear on a gated step — that would be a one-tap path past
   // the thing we just stopped for.
-  const actionable = !result.stopped && result.field_label &&
+  const actionable = !result.stopped && result.field_key &&
     ["enter", "choose", "check", "read"].includes(result.action);
 
   didIt.hidden = !actionable;
   if (actionable) didIt.textContent = `I've done ${shorten(result.field_label)}`;
 
-  explain.hidden = !result.field_label;
+  explain.hidden = !result.field_key;
   family.hidden = !result.offer_family_loop;
 }
 
@@ -148,12 +148,12 @@ function renderFields() {
 
   for (const field of state.fields) {
     const li = document.createElement("li");
-    const done = field.done || state.completed.includes(field.label);
+    const done = field.done || state.completed.includes(field.key);
     const locked = field.kind === "signature";
 
     li.className = [
       done ? "done" : "",
-      field.label === state.current ? "current" : "",
+      field.key === state.current ? "current" : "",
       locked ? "locked" : "",
     ].filter(Boolean).join(" ");
 
@@ -175,7 +175,7 @@ function renderFields() {
       "aria-label",
       `${field.label}${done ? ", done" : ""}. Explain this field.`
     );
-    button.addEventListener("click", () => explainField(field.label));
+    button.addEventListener("click", () => explainField(field.key));
 
     li.append(button);
     list.append(li);
@@ -185,10 +185,10 @@ function renderFields() {
 function apply(result) {
   if (result.fields && result.fields.length) state.fields = result.fields;
   if (result.completed) state.completed = result.completed;
-  state.current = result.field_label || null;
+  state.current = result.field_key || null;
 
   if (result.stopped) {
-    state.lastStop = { reason: result.stop_reason, label: result.field_label };
+    state.lastStop = { reason: result.stop_reason, key: result.field_key };
   }
 
   $("start").hidden = true;
@@ -229,10 +229,10 @@ async function scan(file) {
   }
 }
 
-async function explainField(label) {
+async function explainField(key) {
   busy(true, "Looking it up…");
   try {
-    apply(await turn({ kind: "ask", field_label: label }));
+    apply(await turn({ kind: "ask", field_key: key }));
   } catch (err) {
     toast(`Couldn't explain that: ${err.message}`, 4200);
   } finally {
@@ -240,10 +240,10 @@ async function explainField(label) {
   }
 }
 
-async function markDone(label) {
+async function markDone(key) {
   busy(true, "Nice. What's next…");
   try {
-    apply(await turn({ kind: "done", field_label: label }));
+    apply(await turn({ kind: "done", field_key: key }));
   } catch (err) {
     toast(`Something went wrong: ${err.message}`, 4200);
   } finally {
@@ -256,7 +256,7 @@ async function askFamily() {
   try {
     const result = await turn({
       kind: "family",
-      field_label: state.lastStop?.label || state.current || "",
+      field_key: state.lastStop?.key || state.current || "",
       // The stop code, not the card text — the backend turns it into
       // something that reads naturally forwarded to another person.
       reason: state.lastStop?.reason || "",

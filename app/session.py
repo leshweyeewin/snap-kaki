@@ -43,12 +43,13 @@ class FormSession:
 
     @property
     def completed_set(self) -> set[str]:
+        """Completed field KEYS, not labels. See DetectedField.key."""
         return set(self.completed)
 
-    def mark_complete(self, label: str) -> None:
-        """Record that a field is done. The label only - never the value."""
-        if label and label not in self.completed:
-            self.completed.append(label)
+    def mark_complete(self, key: str) -> None:
+        """Record that a field is done. The key only - never the value."""
+        if key and key not in self.completed:
+            self.completed.append(key)
 
     def note(self, event: str) -> None:
         """Append to the event trail, keeping only what guidance needs."""
@@ -56,11 +57,20 @@ class FormSession:
             self.history.append(event)
             del self.history[:-10]
 
-    def field_by_label(self, label: str) -> Optional[DetectedField]:
+    def field_by_key(self, key: str) -> Optional[DetectedField]:
         for f in self.fields:
-            if f.label == label:
+            if f.key == key:
                 return f
         return None
+
+    def label_for(self, key: str) -> str:
+        found = self.field_by_key(key)
+        return found.label if found else key
+
+    def completed_labels(self) -> List[str]:
+        """Display labels for the finished fields, in form order."""
+        done = self.completed_set
+        return [f.label for f in self.fields if f.key in done]
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -79,13 +89,14 @@ class FormSession:
     def from_dict(cls, data: Dict[str, Any]) -> "FormSession":
         fields = [
             DetectedField(
+                key=d.get("key", f"f{i:02d}"),
                 label=d.get("label", ""),
                 kind=d.get("kind", "unknown"),
                 options=list(d.get("options") or []),
                 has_value=bool(d.get("has_value", False)),
                 notes=d.get("notes", ""),
             )
-            for d in (data.get("fields") or [])
+            for i, d in enumerate(data.get("fields") or [])
         ]
         return cls(
             session_id=data["session_id"],

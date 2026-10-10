@@ -35,7 +35,8 @@ class TurnResult:
     session_id: str
     message: str = ""              # the main thing to show
     detail: Optional[str] = None   # secondary line, e.g. how to decide
-    field_label: Optional[str] = None
+    field_key: Optional[str] = None    # stable handle the client sends back
+    field_label: Optional[str] = None  # display text only
     action: Optional[str] = None
     stopped: bool = False          # did the gate stop us
     stop_reason: Optional[str] = None
@@ -51,6 +52,7 @@ class TurnResult:
             "session_id": self.session_id,
             "message": self.message,
             "detail": self.detail,
+            "field_key": self.field_key,
             "field_label": self.field_label,
             "action": self.action,
             "stopped": self.stopped,
@@ -67,10 +69,11 @@ def _fields_payload(session: FormSession) -> List[Dict[str, Any]]:
     done = session.completed_set
     return [
         {
+            "key": f.key,
             "label": f.label,
             "kind": f.kind,
             "options": f.options,
-            "done": f.label in done or f.has_value,
+            "done": f.key in done or f.has_value,
             "notes": f.notes,
         }
         for f in session.fields
@@ -107,6 +110,7 @@ async def _guide(session: FormSession, kind: str = "next") -> TurnResult:
     )
 
     result = _base(session, kind)
+    result.field_key = step.field_key
     result.field_label = step.field_label
     result.action = step.action
     result.confidence = step.confidence
@@ -164,11 +168,11 @@ async def handle_scan(
 
 
 async def handle_question(
-    session: FormSession, *, field_label: str, question: str = ""
+    session: FormSession, *, field_key: str, question: str = ""
 ) -> TurnResult:
     """"What does this field mean?" turn."""
-    known = session.field_by_label(field_label)
-    label = known.label if known else field_label
+    known = session.field_by_key(field_key)
+    label = known.label if known else field_key
 
     explanation = await field_explainer.explain(
         label,
@@ -187,6 +191,7 @@ async def handle_question(
     )
 
     result = _base(session, "explain")
+    result.field_key = known.key if known else None
     result.field_label = label
     result.confidence = explanation.confidence
     result.sources = explanation.sources
@@ -208,10 +213,10 @@ async def handle_question(
     return result
 
 
-async def handle_field_done(session: FormSession, *, field_label: str) -> TurnResult:
-    """The user says they finished a field. We record the label, not the value."""
-    session.mark_complete(field_label)
-    session.note(f"finished {field_label}")
+async def handle_field_done(session: FormSession, *, field_key: str) -> TurnResult:
+    """The user says they finished a field. We record the key, not the value."""
+    session.mark_complete(field_key)
+    session.note(f"finished {session.label_for(field_key)}")
     store.save(session)
     return await _guide(session, kind="next")
 
@@ -245,14 +250,19 @@ _STOP_PHRASES = {
 
 
 async def handle_family_loop(session: FormSession, *, stuck_on: str = "", reason: str = "") -> TurnResult:
-    """Draft the message that brings a relative in. Text only, by construction."""
+    """Draft the message that brings a relative in. Text only, by construction.
+
+    `stuck_on` is a field key from the client; it is resolved to a label here
+    so the drafted message never contains an internal handle.
+    """
     phrase = _STOP_PHRASES.get(
         reason, reason or "I'm not sure about the declaration at the end."
     )
+    stuck_label = session.label_for(stuck_on) if stuck_on else ""
     summary = await family_loop.summarise(
         form_guess=session.form_guess,
-        completed_labels=list(session.completed),
-        stuck_on=stuck_on or (session.fields[-1].label if session.fields else ""),
+        completed_labels=session.completed_labels(),
+        stuck_on=stuck_label or (session.fields[-1].label if session.fields else ""),
         reason=phrase,
         language=session.language,
     )

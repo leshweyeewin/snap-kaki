@@ -39,9 +39,12 @@ IRREVERSIBLE_ACTIONS = {"submit", "pay", "confirm", "agree", "sign", "consent"}
 USE_STUB = os.environ.get("USE_STUB", "false").lower() == "true"
 
 # --- Demo scope ---
-# One form, nailed end to end. The corpus and the mock are both built against
-# the CHAS application form (chas.sg, Jan 2023 revision).
-DEMO_FORM_ID = os.environ.get("DEMO_FORM_ID", "chas-application-2023-01")
+# One form, nailed end to end. The corpus and the stub are both built against
+# the CHAS application form, Dec 2025 revision, downloaded from chas.sg.
+# Bump this when the corpus is re-checked against a newer revision; it is the
+# Firestore partition key, so stale chunks stop being retrieved rather than
+# silently mixing with new ones.
+DEMO_FORM_ID = os.environ.get("DEMO_FORM_ID", "chas-application-2025-12")
 
 # Languages the field-explainer will answer in. Keys are what the client sends.
 SUPPORTED_LANGUAGES = {

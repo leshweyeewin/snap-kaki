@@ -15,7 +15,10 @@ from app import config
 from app.main import app
 from app.session import store
 
-DECLARATION = "Declaration and Consent (Clause 11)"
+# The two signature-kind fields on the Dec 2025 form. Both must gate.
+DECLARATION = "Consent and Declaration by Main Applicant (Section 2B)"
+SIGNATURE = "Signature / Thumbprint of Main Applicant (Section 3)"
+IRREVERSIBLE_FIELDS = {DECLARATION, SIGNATURE}
 
 
 @pytest.fixture
@@ -31,6 +34,13 @@ def _scan(client, session_id):
         data={"session_id": session_id, "kind": "scan"},
         files={"image": ("form.jpg", b"not-a-real-jpeg", "image/jpeg")},
     )
+
+
+def _keys(client, sid):
+    """label -> key for the current session. Labels repeat on the real form,
+    so tests resolve through this rather than addressing fields by label."""
+    body = client.post("/turn", data={"session_id": sid, "kind": "next"}).json()
+    return {f["label"]: f["key"] for f in body["fields"]}
 
 
 def test_healthz(client):
@@ -84,13 +94,33 @@ def test_scan_reads_the_chas_fields(client):
     body = _scan(client, sid).json()
 
     labels = [f["label"] for f in body["fields"]]
-    assert "Identification Type" in labels
     assert "Dwelling Type" in labels
-    assert "Rental Status" in labels
+    assert "Rental Status of Residence" in labels
     assert DECLARATION in labels
-    # The brief is explicit: eligibility is pulled from IRAS/CPF by consent,
-    # so an income field would be a scripted lie about the real form.
+    assert SIGNATURE in labels
+    # Verified against the published Dec 2025 PDF: eligibility is pulled from
+    # IRAS/CPF by consent, so an income field would be a scripted lie about
+    # the real form.
     assert not any("income" in label.lower() for label in labels)
+
+
+def test_stub_options_match_the_real_form(client):
+    """The stub's printed options are copied from the PDF, not invented.
+
+    Guards the specific things the Dec 2025 revision changed: dwelling type
+    lost its room-count breakdown, and rental status is phrased as
+    "Not Rented", not "Owned".
+    """
+    sid = client.post("/session").json()["session_id"]
+    fields = {f["label"]: f for f in _scan(client, sid).json()["fields"]}
+
+    dwelling = fields["Dwelling Type"]["options"]
+    assert "HDB Flat" in dwelling
+    assert not any("room" in o.lower() for o in dwelling)
+
+    rental = fields["Rental Status of Residence"]["options"]
+    assert "Not Rented (e.g. bought or owned)" in rental
+    assert "Renting from Government" in rental
 
 
 def test_no_field_carries_a_value(client):
@@ -109,7 +139,7 @@ def test_asking_about_a_field_is_grounded_in_the_corpus(client):
         data={
             "session_id": sid,
             "kind": "ask",
-            "field_label": "Rental Status",
+            "field_key": _keys(client, sid)["Rental Status of Residence"],
             "question": "I am still paying my HDB loan, is that rented?",
         },
     ).json()
@@ -128,11 +158,13 @@ def test_walking_the_form_reaches_the_declaration_and_stops(client):
     """
     sid = client.post("/session").json()["session_id"]
     body = _scan(client, sid).json()
-    ordinary = [f["label"] for f in body["fields"] if f["label"] != DECLARATION]
+    ordinary = [
+        f["key"] for f in body["fields"] if f["label"] not in IRREVERSIBLE_FIELDS
+    ]
 
-    for label in ordinary:
+    for key in ordinary:
         body = client.post(
-            "/turn", data={"session_id": sid, "kind": "done", "field_label": label}
+            "/turn", data={"session_id": sid, "kind": "done", "field_key": key}
         ).json()
 
     assert body["stopped"] is True
@@ -148,13 +180,15 @@ def test_the_gate_never_emits_an_instruction_to_sign(client):
     """Walk the whole form and assert no turn ever told the user to sign."""
     sid = client.post("/session").json()["session_id"]
     body = _scan(client, sid).json()
-    labels = [f["label"] for f in body["fields"] if f["label"] != DECLARATION]
+    keys = [
+        f["key"] for f in body["fields"] if f["label"] not in IRREVERSIBLE_FIELDS
+    ]
 
     seen = [body]
-    for label in labels:
+    for key in keys:
         seen.append(
             client.post(
-                "/turn", data={"session_id": sid, "kind": "done", "field_label": label}
+                "/turn", data={"session_id": sid, "kind": "done", "field_key": key}
             ).json()
         )
 
@@ -171,7 +205,7 @@ def test_family_loop_message_carries_no_pii(client):
         data={
             "session_id": sid,
             "kind": "family",
-            "field_label": DECLARATION,
+            "field_key": _keys(client, sid)[DECLARATION],
             "reason": "It is a legal declaration.",
         },
     ).json()
@@ -187,10 +221,14 @@ def test_completed_labels_persist_across_turns(client):
     _scan(client, sid)
     client.post(
         "/turn",
-        data={"session_id": sid, "kind": "done", "field_label": "Dwelling Type"},
+        data={
+            "session_id": sid,
+            "kind": "done",
+            "field_key": _keys(client, sid)["Dwelling Type"],
+        },
     )
     body = client.post("/turn", data={"session_id": sid, "kind": "next"}).json()
-    assert "Dwelling Type" in body["completed"]
+    assert _keys(client, sid)["Dwelling Type"] in body["completed"]
 
 
 def test_rescanning_keeps_completed_progress(client):
@@ -200,20 +238,78 @@ def test_rescanning_keeps_completed_progress(client):
     _scan(client, sid)
     client.post(
         "/turn",
-        data={"session_id": sid, "kind": "done", "field_label": "Dwelling Type"},
+        data={
+            "session_id": sid,
+            "kind": "done",
+            "field_key": _keys(client, sid)["Dwelling Type"],
+        },
     )
     body = _scan(client, sid).json()
-    assert "Dwelling Type" in body["completed"]
+    assert _keys(client, sid)["Dwelling Type"] in body["completed"]
 
 
 def test_session_stores_no_values_at_rest(client):
     sid = client.post("/session").json()["session_id"]
     _scan(client, sid)
+    mobile = _keys(client, sid)["Mobile Number"]
     client.post(
-        "/turn", data={"session_id": sid, "kind": "done", "field_label": "Mobile Number"}
+        "/turn", data={"session_id": sid, "kind": "done", "field_key": mobile}
     )
 
     stored = store.get(sid).to_dict()
-    assert stored["completed"] == ["Mobile Number"]
+    assert stored["completed"] == [mobile]
     for f in stored["fields"]:
-        assert set(f) == {"label", "kind", "options", "has_value", "notes"}
+        assert set(f) == {"key", "label", "kind", "options", "has_value", "notes"}
+
+
+def test_duplicate_labels_are_tracked_separately():
+    """Regression: the real Dec 2025 form carries "Name (in BLOCK LETTERS, as
+    in NRIC)" and "Mobile Number" twice - once in Section 1A for the
+    applicant, once in Section 1B for a family member.
+
+    Found by running the live vision agent against the published PDF. Keying
+    completion off the label ticked both at once.
+    """
+    from app.agents.vision import DetectedField, assign_keys
+    from app.session import FormSession
+
+    session = FormSession(session_id="dup")
+    session.fields = assign_keys([
+        DetectedField(label="Name (in BLOCK LETTERS, as in NRIC)", kind="text"),
+        DetectedField(label="Mobile Number", kind="number"),
+        DetectedField(label="Name (in BLOCK LETTERS, as in NRIC)", kind="text"),
+        DetectedField(label="Mobile Number", kind="number"),
+    ])
+
+    keys = [f.key for f in session.fields]
+    assert len(set(keys)) == 4, "keys must be unique even when labels are not"
+
+    # Finish the applicant's name only.
+    session.mark_complete(keys[0])
+
+    done = session.completed_set
+    assert keys[0] in done
+    assert keys[2] not in done, "finishing 1A must not tick the 1B field"
+    assert session.completed_labels() == ["Name (in BLOCK LETTERS, as in NRIC)"]
+
+    # Lookup resolves to the right one of the pair.
+    assert session.field_by_key(keys[3]).label == "Mobile Number"
+    assert session.label_for(keys[2]) == "Name (in BLOCK LETTERS, as in NRIC)"
+
+
+def test_keys_survive_a_firestore_round_trip():
+    """Keys are persisted, not recomputed, so a reload cannot re-map which
+    field a user already finished."""
+    from app.agents.vision import DetectedField, assign_keys
+    from app.session import FormSession
+
+    original = FormSession(session_id="rt")
+    original.fields = assign_keys([
+        DetectedField(label="Mobile Number", kind="number"),
+        DetectedField(label="Mobile Number", kind="number"),
+    ])
+    original.mark_complete(original.fields[1].key)
+
+    restored = FormSession.from_dict(original.to_dict())
+    assert [f.key for f in restored.fields] == [f.key for f in original.fields]
+    assert restored.completed == [original.fields[1].key]

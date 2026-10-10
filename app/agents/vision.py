@@ -66,7 +66,13 @@ confused person down a wrong path.
 
 @dataclass
 class DetectedField:
-    label: str
+    # Stable identity, assigned by position on the form. Labels are NOT
+    # unique: the real CHAS form carries "Name (in BLOCK LETTERS, as in
+    # NRIC)" and "Mobile Number" twice, once in Section 1A for the applicant
+    # and again in Section 1B for a family member. Keying off the label
+    # would tick both when the user finishes one.
+    key: str = ""
+    label: str = ""
     kind: str = "unknown"
     options: List[str] = field(default_factory=list)
     has_value: bool = False
@@ -85,6 +91,21 @@ class VisionResult:
     @property
     def is_empty(self) -> bool:
         return not self.fields
+
+    def key_for_label(self, label: str) -> Optional[str]:
+        """First field with this label. Used only to resolve the model's
+        `focus_label`, which names a field rather than keying one."""
+        for f in self.fields:
+            if f.label == label:
+                return f.key
+        return None
+
+
+def assign_keys(fields: List[DetectedField]) -> List[DetectedField]:
+    """Key fields by position, so duplicate labels stay distinct."""
+    for i, f in enumerate(fields):
+        f.key = f"f{i:02d}"
+    return fields
 
 
 def build_agent() -> LlmAgent:
@@ -165,7 +186,7 @@ def _parse(payload: dict) -> VisionResult:
     return VisionResult(
         form_guess=str(payload.get("form_guess", "")).strip(),
         language=str(payload.get("language", "")).strip(),
-        fields=fields,
+        fields=assign_keys(fields),
         focus_label=focus_label,
         confidence=confidence,
         leaked_pii=leaked,
@@ -191,58 +212,74 @@ async def extract_fields(image: bytes, *, image_mime: str = "image/jpeg") -> Vis
 
 
 def _stub_result() -> VisionResult:
-    """Offline stand-in: the real CHAS fields, so the demo runs with no network."""
+    """Offline stand-in, matching the real Dec 2025 CHAS form.
+
+    Labels and options are copied from the published PDF, not invented. If
+    the stub drifts from the corpus, stub-mode demos start explaining fields
+    that are not on the form.
+    """
     return VisionResult(
-        form_guess="CHAS (Community Health Assist Scheme) application form",
+        form_guess="Application for CHAS Subsidies (Dec 2025)",
         language="English",
-        fields=[
+        fields=assign_keys([
             DetectedField(
-                label="Identification Type",
-                kind="choice",
-                options=["Pink NRIC", "Blue NRIC", "Birth Certificate", "FIN"],
-                notes="Circle one of four printed options.",
+                label="Name (in BLOCK LETTERS, as in NRIC)",
+                kind="text",
+                notes="Section 1A. Main applicant.",
             ),
             DetectedField(
                 label="Pink NRIC / Birth Certificate Number",
                 kind="text",
-                notes="One letter, seven digits, one letter.",
+                notes="Section 1A. Boxed: one letter, seven digits, one letter. "
+                      "Main applicant must be a Singapore Citizen.",
+            ),
+            DetectedField(
+                label="Mobile Number",
+                kind="number",
+                notes="Section 1A. Either this or a home phone number is required.",
             ),
             DetectedField(
                 label="Dwelling Type",
                 kind="choice",
                 options=[
-                    "1-room / 2-room HDB",
-                    "3-room HDB",
-                    "4-room HDB",
-                    "5-room / Executive HDB",
-                    "Private housing",
-                    "Landed property",
+                    "HDB Flat",
+                    "Private Housing (Including Executive Condo)",
+                    "Institution (MOH/MSF licensed home)",
+                    "Others (please specify)",
                 ],
-                notes="Tick one.",
+                notes="Section 1A. Tick one. Based on the NRIC address.",
             ),
             DetectedField(
-                label="Rental Status",
+                label="Rental Status of Residence",
                 kind="choice",
-                options=["Owned", "Rented from HDB", "Rented from open market"],
-                notes="Tick one.",
+                options=[
+                    "Renting from Government",
+                    "Renting from Open Market",
+                    "Not Rented (e.g. bought or owned)",
+                ],
+                notes="Section 1A. Tick one.",
             ),
             DetectedField(
-                label="Mobile Number",
-                kind="number",
-                notes="Eight digits, starting with 8 or 9.",
-            ),
-            DetectedField(
-                label="Family members living at the same address",
+                label="Particulars of Family Members Sharing the Same NRIC Address",
                 kind="text",
-                notes="Table: name, identification number, relationship.",
+                notes="Section 1B. Per person: name, identification number with "
+                      "Pink NRIC / Blue NRIC / Birth Certificate Number / FIN "
+                      "circled, relationship, optional mobile.",
             ),
             DetectedField(
-                label="Declaration and Consent (Clause 11)",
+                label="Consent and Declaration by Main Applicant (Section 2B)",
                 kind="signature",
-                notes="Signature or thumbprint. Declares information true and "
-                      "consents to IRAS/CPF income disclosure.",
+                notes="Consents to the Government, IRAS and CPF Board disclosing "
+                      "income and CPF information; declares all information true "
+                      "and accurate.",
             ),
-        ],
-        focus_label="Rental Status",
+            DetectedField(
+                label="Signature / Thumbprint of Main Applicant (Section 3)",
+                kind="signature",
+                notes="Signature or thumbprint, with date. Form is returned "
+                      "unprocessed without it.",
+            ),
+        ]),
+        focus_label="Rental Status of Residence",
         confidence=0.91,
     )

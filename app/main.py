@@ -91,7 +91,7 @@ async def create_session(language: str = Form(config.DEFAULT_LANGUAGE)) -> JSONR
 async def turn(
     session_id: str = Form(...),
     kind: str = Form(...),
-    field_label: Optional[str] = Form(None),
+    field_key: Optional[str] = Form(None),
     question: Optional[str] = Form(None),
     reason: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
@@ -100,10 +100,13 @@ async def turn(
 
     kind:
       scan   - an image is attached; read the form and give the next step
-      ask    - explain field_label, optionally answering `question`
-      done   - the user finished field_label; give the next step
+      ask    - explain field_key, optionally answering `question`
+      done   - the user finished field_key; give the next step
       next   - just give the next step
       family - draft the message asking a relative for help
+
+    Fields are addressed by `field_key` (the `key` from a scan's field list),
+    never by label: labels repeat on the real form.
     """
     session = store.get(session_id)
     if session is None:
@@ -133,23 +136,27 @@ async def turn(
         result = await orchestrator.handle_scan(session, data, image_mime=content_type)
 
     elif kind == "ask":
-        if not field_label:
-            raise HTTPException(status_code=400, detail="ask turn needs field_label")
+        if not field_key:
+            raise HTTPException(status_code=400, detail="ask turn needs field_key")
         result = await orchestrator.handle_question(
-            session, field_label=field_label, question=question or ""
+            session, field_key=field_key, question=question or ""
         )
 
     elif kind == "done":
-        if not field_label:
-            raise HTTPException(status_code=400, detail="done turn needs field_label")
-        result = await orchestrator.handle_field_done(session, field_label=field_label)
+        if not field_key:
+            raise HTTPException(status_code=400, detail="done turn needs field_key")
+        if session.field_by_key(field_key) is None:
+            raise HTTPException(
+                status_code=400, detail=f"no field {field_key!r} in this session"
+            )
+        result = await orchestrator.handle_field_done(session, field_key=field_key)
 
     elif kind == "next":
         result = await orchestrator.handle_next(session)
 
     elif kind == "family":
         result = await orchestrator.handle_family_loop(
-            session, stuck_on=field_label or "", reason=reason or ""
+            session, stuck_on=field_key or "", reason=reason or ""
         )
 
     else:

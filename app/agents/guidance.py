@@ -63,17 +63,22 @@ Return ONLY a JSON object, no prose and no code fence:
 
 {
   "step": "the one next thing, addressed to the person, one or two sentences",
-  "field_label": "the field this step is about, or null",
+  "field_key": "the key of the field this step is about (the fNN value from
+                the list you were given), or null",
   "action": one of: read, enter, choose, check, ask, sign, consent, submit, done
   "why": "one short sentence on why this step matters, or null",
   "confidence": 0.0 to 1.0
 }
+
+Use the key, not the label. Labels repeat on this form - the applicant and
+their family member both have a "Name" and a "Mobile Number" field.
 """
 
 
 @dataclass
 class NextStep:
     step: str = ""
+    field_key: Optional[str] = None
     field_label: Optional[str] = None
     action: str = "ask"
     why: Optional[str] = None
@@ -104,13 +109,18 @@ def _get_agent() -> LlmAgent:
 
 
 def _render_fields(fields, completed: set[str]) -> str:
+    """Render the form state for the prompt.
+
+    Each line carries the field's key, because labels repeat on the real
+    form and the model has to be able to name one unambiguously.
+    """
     if not fields:
         return "(no fields read from the form yet)"
     lines = []
     for f in fields:
-        mark = "x" if (f.label in completed or f.has_value) else " "
+        mark = "x" if (f.key in completed or f.has_value) else " "
         opts = f" options: {', '.join(f.options)}" if f.options else ""
-        lines.append(f"  [{mark}] {f.label} ({f.kind}){opts}")
+        lines.append(f"  [{mark}] {f.key} | {f.label} ({f.kind}){opts}")
     return "\n".join(lines)
 
 
@@ -123,7 +133,7 @@ async def next_step(
     form_id: str = config.DEMO_FORM_ID,
 ) -> NextStep:
     """Pick the next step. Never raises; failure comes back as low confidence."""
-    remaining = [f for f in fields if f.label not in completed and not f.has_value]
+    remaining = [f for f in fields if f.key not in completed and not f.has_value]
     query = remaining[0].label if remaining else "finishing the form declaration"
     chunks = retriever.retrieve(query, k=2, form_id=form_id)
     sources = [c.heading for c in chunks]
@@ -156,11 +166,18 @@ async def next_step(
         action = "ask"
         payload["confidence"] = 0.0
 
+    # Resolve the key the model named back to a real field. A key it made up
+    # is dropped rather than echoed, so the client never gets a handle that
+    # does not exist.
+    by_key = {f.key: f for f in fields}
+    raw_key = payload.get("field_key")
+    target = by_key.get(str(raw_key).strip()) if raw_key else None
+
     why = payload.get("why")
-    field_label = payload.get("field_label")
     return NextStep(
         step=str(payload.get("step", "")).strip(),
-        field_label=str(field_label).strip() if field_label else None,
+        field_key=target.key if target else None,
+        field_label=target.label if target else None,
         action=action,
         why=str(why).strip() if why else None,
         confidence=clamp_confidence(payload.get("confidence")),
@@ -172,11 +189,8 @@ def _stub_step(remaining, sources) -> NextStep:
     """Offline stand-in that still walks the real CHAS field order."""
     if not remaining:
         return NextStep(
-            step="Everything above is filled in. The last thing on this form is "
-                 "the declaration and signature.",
-            field_label="Declaration and Consent (Clause 11)",
-            action="sign",
-            why="It is a legal declaration about everything you entered.",
+            step="Everything on this form is filled in.",
+            action="done",
             confidence=0.9,
             sources=sources,
         )
@@ -184,6 +198,7 @@ def _stub_step(remaining, sources) -> NextStep:
     if nxt.kind == "signature":
         return NextStep(
             step=f"The next part is {nxt.label}.",
+            field_key=nxt.key,
             field_label=nxt.label,
             action="sign",
             why="It is a legal declaration about everything you entered.",
@@ -195,6 +210,7 @@ def _stub_step(remaining, sources) -> NextStep:
         step=f"[stub] Next: {nxt.label}. "
              + (f"Pick one of: {', '.join(nxt.options)}." if nxt.options else
                 "Fill this one in yourself."),
+        field_key=nxt.key,
         field_label=nxt.label,
         action=action,
         why=None,
