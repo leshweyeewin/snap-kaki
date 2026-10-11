@@ -65,3 +65,42 @@ def test_a_signpost_without_an_authority_is_not_useful():
     assert not Signpost().useful
     assert not Signpost(authority="Someone", confidence=0.2).useful
     assert Signpost(authority="Someone", confidence=0.9).useful
+
+
+# --- read-aloud --------------------------------------------------------------
+
+def test_hokkien_has_no_voice_and_we_do_not_fake_one():
+    """Cloud TTS has no Hokkien voice. The nearest thing is a Mandarin
+    reader on romanised Hokkien, which produces confident nonsense in a
+    language the listener actually speaks. Silence is the honest answer."""
+    from app import speech
+
+    assert not speech.available_for("hokkien")
+    assert speech.synthesise("Jit-e si sim-mih?", "hokkien") is None
+
+
+def test_the_languages_we_claim_can_actually_be_spoken():
+    from app import config, speech
+
+    for code in ("en", "zh", "ms", "ta"):
+        assert code in config.SUPPORTED_LANGUAGES
+        assert speech.available_for(code), code
+
+
+def test_speech_refuses_text_that_fails_the_pii_check(monkeypatch):
+    """Audio is a second channel out of the system. The PII boundary covers
+    every channel, not only the visible one."""
+    from app import speech
+
+    monkeypatch.setattr(
+        speech, "assert_clean",
+        lambda _t: (_ for _ in ()).throw(ValueError("pii")),
+    )
+    assert speech.synthesise("S1234567D", "en") is None
+
+
+def test_empty_text_is_not_spoken():
+    from app import speech
+
+    assert speech.synthesise("", "en") is None
+    assert speech.synthesise("   ", "en") is None

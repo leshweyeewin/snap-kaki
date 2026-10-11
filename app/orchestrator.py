@@ -150,7 +150,9 @@ async def handle_scan(
     session: FormSession, image: bytes, *, image_mime: str = "image/jpeg"
 ) -> TurnResult:
     """Camera or screenshot turn: read the form, then guide."""
-    reading = await vision.extract_fields(image, image_mime=image_mime)
+    reading = await vision.extract_fields(
+        image, image_mime=image_mime, form_id=session.form_id
+    )
 
     if reading.is_empty or reading.confidence < config.CONFIDENCE_FLOOR:
         decision = confidence_gate.evaluate(

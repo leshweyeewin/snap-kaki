@@ -71,7 +71,18 @@
     </div>
 
     <div id="card" class="card" aria-live="polite">
-      <p class="card-kicker" id="card-kicker" hidden></p>
+      <div class="card-head">
+        <p class="card-kicker" id="card-kicker" hidden></p>
+        <button type="button" class="speak" id="speak" hidden
+                aria-label="Read this aloud">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M4 9.5h3.5L12 5.5v13L7.5 14.5H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1Z"/>
+            <path class="wave" d="M15.6 9a4.2 4.2 0 0 1 0 6"/>
+            <path class="wave" d="M18.3 6.6a7.8 7.8 0 0 1 0 10.8"/>
+          </svg>
+          <span id="speak-label">Read aloud</span>
+        </button>
+      </div>
       <p class="card-step" id="card-step"></p>
       <p class="card-why" id="card-why" hidden></p>
       <a class="card-link" id="card-link" hidden target="_blank" rel="noopener noreferrer"></a>

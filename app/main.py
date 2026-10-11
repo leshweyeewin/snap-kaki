@@ -15,11 +15,21 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from app import config, orchestrator
-from app.session import store
+from app import config, tracing
+
+# Tracing is installed BEFORE the ADK import below, and that order is the
+# whole point. OpenTelemetry honours only the first TracerProvider set in a
+# process, and ADK builds its tracers at import time - so starting this from
+# the lifespan hook, as it was, silently produced no spans at all. ADK emits
+# invoke_agent / call_llm / generate_content spans once a provider is there
+# first.
+tracing.start()
+
+from app import orchestrator, speech  # noqa: E402  (must follow tracing.start)
+from app.session import store  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s"
@@ -52,6 +62,7 @@ async def lifespan(_app: FastAPI):
         config.PROJECT_ID, config.LOCATION, config.GEMINI_MODEL,
         config.USE_STUB, config.CONFIDENCE_FLOOR,
     )
+    logger.info("tracing=%s", "cloud-trace" if tracing.active() else "off")
     logger.info(
         "google-adk=%s (pinned %s)  google-genai=%s (pinned %s)",
         adk, config.PINNED_ADK, genai, config.PINNED_GENAI,
@@ -67,6 +78,14 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="SnapKaki", version="0.1.0", lifespan=lifespan)
 
 
+@app.middleware("http")
+async def flush_spans(request, call_next):
+    """Export this request's spans before Cloud Run throttles the CPU."""
+    response = await call_next(request)
+    tracing.flush()
+    return response
+
+
 # Not /healthz: Google's frontend swallows that path before it reaches the
 # container on Cloud Run. The request never appears in the service logs, and
 # the 404 you get back is Google's, not Starlette's. Namespaced under /api
@@ -74,6 +93,32 @@ app = FastAPI(title="SnapKaki", version="0.1.0", lifespan=lifespan)
 @app.get("/api/health")
 async def health() -> dict:
     return {"ok": True, "stub": config.USE_STUB, "model": config.GEMINI_MODEL}
+
+
+@app.post("/speak")
+async def speak(
+    session_id: str = Form(...),
+    text: str = Form(...),
+) -> Response:
+    """Read an answer aloud, in the session's language.
+
+    Returns 204 when we have no voice for that language rather than an
+    error: the client hides the button, and no voice is a normal state,
+    not a failure. Hokkien has no Cloud TTS voice and we will not fake one
+    with a Mandarin reader - see app/speech.py.
+    """
+    session = store.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="session not found; start a new one")
+
+    audio = speech.synthesise(text, session.language)
+    if audio is None:
+        return Response(status_code=204)
+    return Response(
+        content=audio,
+        media_type="audio/mpeg",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.post("/session")
@@ -86,6 +131,8 @@ async def create_session(language: str = Form(config.DEFAULT_LANGUAGE)) -> JSONR
             "session_id": session.session_id,
             "language": session.language,
             "languages": config.SUPPORTED_LANGUAGES,
+            "speech_languages": sorted(speech.VOICES),
+            "can_speak": speech.available_for(session.language),
             "form_id": session.form_id,
         }
     )

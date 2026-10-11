@@ -19,6 +19,7 @@ const state = {
   completed: [],
   current: null,     // key of the field the current step is about
   lastStop: null,    // { reason, key } for the family hand-off
+  canSpeak: true,    // does this language have a voice at all
 };
 
 /* --- preferences -------------------------------------------------------- */
@@ -132,6 +133,93 @@ async function downscale(file) {
   }
 }
 
+/* --- read aloud ----------------------------------------------------------- */
+
+/* The challenge names Elderlies under Information Accessibility, and until
+ * this existed our answer to someone who struggles to read was more reading.
+ *
+ * Cloud TTS first, because it is consistent across devices and covers
+ * Mandarin, Malay and Tamil properly. The browser's own speechSynthesis is
+ * the fallback: it is free and instant but its voices vary wildly by device,
+ * and on some Android builds there is no Chinese voice at all. Hokkien has
+ * no voice anywhere, so the button is simply hidden for it. */
+let audio = null;
+
+function stopSpeaking() {
+  if (audio) { audio.pause(); audio = null; }
+  try { window.speechSynthesis?.cancel(); } catch { /* not everywhere */ }
+  const btn = $("speak");
+  btn.classList.remove("playing");
+  btn.disabled = false;
+  $("speak-label").textContent = "Read aloud";
+}
+
+function spokenText() {
+  // What is on the card, in reading order: the step, then the detail.
+  return [$("card-step").textContent, $("card-why").hidden ? "" : $("card-why").textContent]
+    .filter(Boolean).join(". ");
+}
+
+async function speak() {
+  if (audio) { stopSpeaking(); return; }
+
+  const text = spokenText();
+  if (!text) return;
+
+  const btn = $("speak");
+  btn.disabled = true;
+  $("speak-label").textContent = "Loading…";
+
+  try {
+    const body = new FormData();
+    body.append("session_id", state.sessionId);
+    body.append("text", text);
+    const response = await fetch("/speak", { method: "POST", body });
+
+    // 204 = this language has no voice. Hide the button rather than
+    // pretend; a Mandarin reader on romanised Hokkien is worse than silence.
+    if (response.status === 204) {
+      state.canSpeak = false;
+      btn.hidden = true;
+      toast("No voice available for this language yet.", 3200);
+      return;
+    }
+    if (!response.ok) throw new Error(String(response.status));
+
+    const blob = await response.blob();
+    audio = new Audio(URL.createObjectURL(blob));
+    audio.onended = stopSpeaking;
+    audio.onerror = stopSpeaking;
+    btn.classList.add("playing");
+    $("speak-label").textContent = "Stop";
+    await audio.play();
+  } catch (err) {
+    console.warn("cloud tts failed, trying the browser", err);
+    if (!browserSpeak(text)) toast("Couldn't read that aloud.", 3200);
+  } finally {
+    btn.disabled = false;
+    if (!audio) $("speak-label").textContent = "Read aloud";
+  }
+}
+
+const BROWSER_LOCALES = { en: "en-US", zh: "zh-CN", ms: "ms-MY", ta: "ta-IN" };
+
+function browserSpeak(text) {
+  if (!window.speechSynthesis) return false;
+  try {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = BROWSER_LOCALES[state.language] || "en-US";
+    utterance.rate = 0.92;
+    utterance.onend = stopSpeaking;
+    $("speak").classList.add("playing");
+    $("speak-label").textContent = "Stop";
+    window.speechSynthesis.speak(utterance);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /* --- rendering ----------------------------------------------------------- */
 
 const KICKERS = {
@@ -179,6 +267,10 @@ function renderCard(result) {
     link.removeAttribute("href");
     link.hidden = true;
   }
+
+  // A new card means whatever was being read is now stale.
+  stopSpeaking();
+  $("speak").hidden = !(state.canSpeak && $("card-step").textContent.trim());
 
   const sources = $("card-sources");
   sources.replaceChildren();
@@ -309,6 +401,7 @@ async function ensureSession() {
   const data = await post("/session", body);
   state.sessionId = data.session_id;
   state.language = data.language;
+  if (typeof data.can_speak === "boolean") state.canSpeak = data.can_speak;
   PREFS.write("session", data.session_id);
   return state.sessionId;
 }
@@ -454,6 +547,7 @@ async function init() {
   $("did-it").addEventListener("click", () => { if (state.current) markDone(state.current); });
   $("explain").addEventListener("click", () => { if (state.current) explainField(state.current); });
   $("family").addEventListener("click", askFamily);
+  $("speak").addEventListener("click", speak);
 
   $("copy-message").addEventListener("click", copyMessage);
   $("close-family").addEventListener("click", () => $("family-dialog").close());
@@ -467,6 +561,7 @@ async function init() {
 
   $("language").addEventListener("change", (e) => {
     state.language = e.target.value;
+    state.canSpeak = e.target.value !== "hokkien";
     PREFS.write("lang", e.target.value);
     // A language change starts a fresh session rather than mutating one
     // mid-flow, so the event trail and the answers stay in one language.

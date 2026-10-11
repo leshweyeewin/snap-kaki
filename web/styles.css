@@ -66,13 +66,23 @@
 }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+
+/* 18px on the ROOT, not on body.
+   rem resolves against html, so setting the size on body alone left every
+   rem-based size in this file scaled off the browser's 16px default - the
+   whole type scale was ~11% smaller than intended and the "nothing under
+   18px" rule above was quietly untrue. Caught by evals/a11y.py, which is
+   the argument for measuring the claim rather than writing it down. */
+html {
+  font-size: 18px;
+  -webkit-text-size-adjust: 100%;
+}
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font: 18px/1.55 Figtree, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 1rem/1.55 Figtree, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   letter-spacing: -0.003em;
   padding-bottom: env(safe-area-inset-bottom);
   -webkit-font-smoothing: antialiased;
@@ -262,6 +272,41 @@ body {
 @keyframes rise {
   from { opacity: 0; transform: translateY(7px); }
   to   { opacity: 1; transform: none; }
+}
+
+.card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 11px;
+}
+.card-head .card-kicker { margin: 0; }
+
+/* Deliberately a full-size control, not a 24px icon. The person most likely
+   to want this is the one least able to hit a small target. */
+.speak {
+  display: inline-flex; align-items: center; gap: 7px;
+  flex: none;
+  min-height: 44px; padding: 8px 14px;
+  background: var(--brand-soft);
+  border: 1.5px solid color-mix(in srgb, var(--brand) 30%, transparent);
+  border-radius: 99px;
+  color: var(--brand-strong);
+  font: inherit; font-size: .92rem; font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.speak[hidden] { display: none; }
+.speak svg {
+  width: 18px; height: 18px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.9;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.speak.playing .wave { opacity: .25; }
+.speak:disabled { opacity: .55; cursor: default; }
+
+.card.stopped .speak {
+  background: color-mix(in srgb, var(--stop-bg) 50%, var(--surface));
+  border-color: var(--stop-line);
+  color: var(--stop);
 }
 
 .card-kicker {

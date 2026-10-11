@@ -196,7 +196,12 @@ async def eval_latency(image_path: str, runs: int) -> tuple[Result, List[float]]
     for _ in range(runs):
         r.total += 1
         t = time.perf_counter()
-        reading = await vision.extract_fields(data, image_mime="image/jpeg")
+        # use_cache=False deliberately: this measures what a first-time
+        # reader waits for. With the cache on, every run after the first
+        # would report ~0.08s and the number would be meaningless.
+        reading = await vision.extract_fields(
+            data, image_mime="image/jpeg", use_cache=False
+        )
         dt = time.perf_counter() - t
         times.append(dt)
         if reading.fields:
@@ -206,9 +211,52 @@ async def eval_latency(image_path: str, runs: int) -> tuple[Result, List[float]]
     return r, times
 
 
+async def eval_cache(image_path: str) -> tuple[Result, Optional[float], Optional[float]]:
+    """A repeat photograph of the same page should not re-pay for the read."""
+    from app import config, vision_cache
+    from app.agents import vision
+
+    r = Result("Cache — repeat scan of the same page")
+    if not os.path.exists(image_path):
+        r.notes.append(f"no image at {image_path}; skipped")
+        return r, None, None
+
+    data = open(image_path, "rb").read()
+    try:
+        from google.cloud import firestore
+
+        firestore.Client(project=config.PROJECT_ID).collection(
+            vision_cache.COLLECTION
+        ).document(vision_cache.key_for(data, config.DEMO_FORM_ID)).delete()
+    except Exception:
+        r.notes.append("could not clear the cache; the miss may not be cold")
+
+    t = time.perf_counter()
+    first = await vision.extract_fields(data, image_mime="image/jpeg")
+    miss = time.perf_counter() - t
+
+    t = time.perf_counter()
+    second = await vision.extract_fields(data, image_mime="image/jpeg")
+    hit = time.perf_counter() - t
+
+    r.total = 2
+    if first.fields:
+        r.passed += 1
+    else:
+        r.notes.append("cold read returned no fields")
+    # A hit has to be both fast and identical, or it is not a cache.
+    if hit < miss / 4 and len(second.fields) == len(first.fields):
+        r.passed += 1
+    else:
+        r.notes.append(f"hit {hit:.2f}s vs miss {miss:.2f}s, "
+                       f"{len(second.fields)} vs {len(first.fields)} fields")
+    return r, miss, hit
+
+
 # --- report ------------------------------------------------------------------
 
-def render(results: List[Result], times: List[float], image_kb: Optional[int]) -> str:
+def render(results: List[Result], times: List[float], image_kb: Optional[int],
+           cache: tuple = (None, None)) -> str:
     lines = [
         "# SnapKaki — evaluation",
         "",
@@ -240,6 +288,16 @@ def render(results: List[Result], times: List[float], image_kb: Optional[int]) -
             "under a second. See the latency note in docs/architecture.md.",
         ]
 
+    miss, hit = cache
+    if miss and hit:
+        lines += [
+            "",
+            "## Cache",
+            "",
+            f"- repeat scan of the same page: **{miss:.1f}s → {hit:.2f}s** "
+            f"({miss / hit:.0f}x), and no second model call",
+        ]
+
     failures = [r for r in results if r.total and not r.ok]
     if failures:
         lines += ["", "## Failures", ""]
@@ -251,21 +309,35 @@ def render(results: List[Result], times: List[float], image_kb: Optional[int]) -
     return "\n".join(lines) + "\n"
 
 
-async def main_async(args) -> int:
-    results = [eval_gate(), eval_form_match()]
+def eval_a11y(url: str, image: str) -> "Result":
+    """WCAG AA against the running page. See evals/a11y.py."""
+    from evals.a11y import audit
+
+    found = audit(url, image)
+    r = Result(found.name)
+    r.passed, r.total, r.notes = found.passed, found.total, list(found.notes)
+    return r
+
+
+async def main_async(args, pre: List[Result]) -> int:
+    results = [eval_gate(), eval_form_match(), *pre]
     times: List[float] = []
     image_kb = None
+    cache = (None, None)
 
     if not args.offline_only:
         results.append(await eval_grounding())
         results.append(await eval_refusal())
+        cache_result, miss, hit = await eval_cache(args.image)
+        results.append(cache_result)
+        cache = (miss, hit)
         if not args.skip_latency:
             lat, times = await eval_latency(args.image, args.runs)
             results.append(lat)
             if os.path.exists(args.image):
                 image_kb = os.path.getsize(args.image) // 1024
 
-    report = render(results, times, image_kb)
+    report = render(results, times, image_kb, cache)
     print(report)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as fh:
@@ -283,8 +355,19 @@ def main() -> int:
     p.add_argument("--skip-latency", action="store_true")
     p.add_argument("--offline-only", action="store_true",
                    help="gate and form match only; no model calls, no cost")
+    p.add_argument("--a11y", action="store_true",
+                   help="also audit WCAG AA against the deployed page")
+    p.add_argument("--url", default="https://snapkaki.web.app",
+                   help="page to audit with --a11y")
     args = p.parse_args()
-    return asyncio.run(main_async(args))
+
+    # Playwright's sync API refuses to run inside an asyncio loop, so the
+    # page audit happens before the loop starts and is passed in.
+    pre: List[Result] = []
+    if args.a11y:
+        pre.append(eval_a11y(args.url, args.image))
+
+    return asyncio.run(main_async(args, pre))
 
 
 if __name__ == "__main__":

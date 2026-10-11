@@ -7,6 +7,9 @@
 google-adk==2.11.0
 google-genai==2.29.0
 google-cloud-firestore==2.34.1
+google-cloud-texttospeech==2.38.0
+# Optional: only used when ENABLE_TRACING=true.
+opentelemetry-exporter-gcp-trace==1.15.0
 fastapi==0.141.1
 uvicorn[standard]==0.54.0
 python-multipart==0.0.32

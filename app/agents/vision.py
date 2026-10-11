@@ -218,10 +218,31 @@ def _parse(payload: dict) -> VisionResult:
     )
 
 
-async def extract_fields(image: bytes, *, image_mime: str = "image/jpeg") -> VisionResult:
-    """Read a form image into structure. Never raises on a bad model reply."""
+async def extract_fields(
+    image: bytes,
+    *,
+    image_mime: str = "image/jpeg",
+    form_id: str = "",
+    use_cache: bool = True,
+) -> VisionResult:
+    """Read a form image into structure. Never raises on a bad model reply.
+
+    Repeat photographs of the same page are served from the cache: the same
+    bytes cannot produce a different form.
+    """
     if config.USE_STUB:
         return _stub_result()
+
+    # Imported here rather than at module scope: vision_cache imports this
+    # module for its dataclasses, and the cycle only resolves lazily.
+    from app import vision_cache
+
+    cache_id = form_id or config.DEMO_FORM_ID
+    if use_cache:
+        hit = vision_cache.get(image, cache_id)
+        if hit is not None:
+            logger.info("vision cache hit (%d fields)", len(hit.fields))
+            return hit
 
     raw = await run_agent(
         _get_agent(),
@@ -233,7 +254,11 @@ async def extract_fields(image: bytes, *, image_mime: str = "image/jpeg") -> Vis
     payload = parse_json(raw, where="vision")
     if not payload:
         return VisionResult(confidence=0.0)
-    return _parse(payload)
+
+    reading = _parse(payload)
+    if use_cache:
+        vision_cache.put(image, cache_id, reading)
+    return reading
 
 
 def _stub_result() -> VisionResult:

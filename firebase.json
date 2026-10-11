@@ -5,19 +5,19 @@
   "hosting": {
     "site": "snapkaki",
     "public": "web",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
     "rewrites": [
       {
-        "source": "/session",
-        "run": { "serviceId": "snapkaki", "region": "asia-southeast1" }
-      },
-      {
-        "source": "/turn",
-        "run": { "serviceId": "snapkaki", "region": "asia-southeast1" }
-      },
-      {
-        "source": "/api/**",
-        "run": { "serviceId": "snapkaki", "region": "asia-southeast1" }
+        "_comment": "Catch-all, deliberately. Listing endpoints one by one meant /speak 404'd the moment it was added - Hosting looked for a static file of that name and found none. Hosting still serves real static files first (index.html, app.js, styles.css); only what it cannot find falls through here. So a new endpoint needs no change to this file, which is the point.",
+        "source": "**",
+        "run": {
+          "serviceId": "snapkaki",
+          "region": "asia-southeast1"
+        }
       }
     ],
     "headers": [
@@ -25,13 +25,19 @@
         "_comment": "Both patterns are needed. Firebase matches the REQUEST path, not the file it resolves to, so a rule on /index.html alone never fires for a browser asking for / - which is every visitor. That left the root page on Firebase's default one-hour cache while every other asset was fresh, so a deploy appeared not to land.",
         "source": "/",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache, max-age=0" }
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, max-age=0"
+          }
         ]
       },
       {
         "source": "**/*.html",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache, max-age=0" }
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, max-age=0"
+          }
         ]
       },
       {
