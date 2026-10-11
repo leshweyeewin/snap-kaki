@@ -113,15 +113,36 @@ OFFICIAL_SUFFIXES = (
 )
 
 
+# National authorities that do not sit on a government suffix. Each one is
+# listed deliberately, because the alternative is allowing a whole country
+# TLD: Norway's immigration directorate is udi.no, and allowing ".no" would
+# admit every commercial site in Norway, which is precisely the class of
+# page this guard exists to keep out.
+OFFICIAL_HOSTS = {
+    "udi.no",            # Norway, Directorate of Immigration
+    "migrationsverket.se",  # Sweden, Migration Agency
+    "ind.nl",            # Netherlands, Immigration and Naturalisation Service
+    "oth.nsw.gov.au",
+}
+
+
 def _looks_official(url: str) -> bool:
+    """Conservative by design, and it fails closed.
+
+    A genuine official source on an unlisted domain is dropped, and the user
+    sees the authority's name without a link. That is the correct direction
+    to be wrong in: the failure we are guarding against is a polished
+    visa-agency page presented as the government's own.
+    """
     if not url:
         return False
     low = url.lower()
     if not low.startswith(("http://", "https://")):
         return False
-    host = low.split("//", 1)[1].split("/", 1)[0].split(":", 1)[0]
-    # Strip a trailing dot and any port already removed above.
-    host = host.rstrip(".")
+    host = low.split("//", 1)[1].split("/", 1)[0].split(":", 1)[0].rstrip(".")
+    bare = host[4:] if host.startswith("www.") else host
+    if bare in OFFICIAL_HOSTS or any(bare.endswith("." + h) for h in OFFICIAL_HOSTS):
+        return True
     return any(host == s.lstrip(".") or host.endswith(s) for s in OFFICIAL_SUFFIXES)
 
 

@@ -179,13 +179,16 @@ async def handle_scan(
     # out-of-corpus questions on its own, but guidance would still propose
     # plausible-sounding steps on a form it knows nothing about. Decide it
     # here, once, before anything is proposed.
-    seen = form_match.match(reading.form_guess, (f.label for f in reading.fields))
-    if seen.unknown:
-        logger.info(
-            "unrecognised form (score=%d, matched=%s): %r",
-            seen.score, seen.matched, reading.form_guess,
-        )
-        return await _handle_unknown_form(session, reading)
+    if not session.form_known:
+        seen = form_match.match(reading.form_guess, (f.label for f in reading.fields))
+        if seen.unknown:
+            logger.info(
+                "unrecognised form (score=%d, matched=%s): %r",
+                seen.score, seen.matched, reading.form_guess,
+            )
+            return await _handle_unknown_form(session, reading)
+        session.form_known = True
+        store.save(session)
 
     return await _guide(session, kind="scan")
 

@@ -146,7 +146,10 @@ async def eval_grounding() -> Result:
     for label, question, must_mention in IN_CORPUS:
         r.total += 1
         e = await field_explainer.explain(label, question=question)
-        text = e.explanation.lower()
+        # Both fields: the prompt deliberately sends "the concrete thing you
+        # can look at" to how_to_decide, so checking the explanation alone
+        # failed answers that were correct and well-placed.
+        text = f"{e.explanation} {e.how_to_decide or ''}".lower()
         hit = any(m in text for m in must_mention)
         if e.grounded and e.sources and hit:
             r.passed += 1

@@ -145,6 +145,7 @@ const KIND_LABELS = {
 };
 
 function kickerFor(result) {
+  if (result.kind === "unknown_form") return "Not a form I know";
   if (result.stopped) return "Let's pause here";
   if (result.kind === "explain") return "What this means";
   return KICKERS[result.action] || "";
@@ -164,6 +165,20 @@ function renderCard(result) {
   const why = $("card-why");
   why.textContent = result.detail || "";
   why.hidden = !result.detail;
+
+  // Official source for a form we hold no guidance for. The href is only
+  // ever a government domain - the backend drops anything else before it
+  // reaches here (see agents/signpost.py) - but rel/target are set in the
+  // markup regardless, because a link we did not write is still a link.
+  const link = $("card-link");
+  if (result.authority_url) {
+    link.href = result.authority_url;
+    link.textContent = "Open the official page";
+    link.hidden = false;
+  } else {
+    link.removeAttribute("href");
+    link.hidden = true;
+  }
 
   const sources = $("card-sources");
   sources.replaceChildren();
@@ -301,8 +316,8 @@ async function ensureSession() {
 async function scan(file) {
   if (!file) return;
   busy(true, "Reading the form…", [
-    [4000, "Still reading — it's a dense page…"],
-    [9000, "Almost there…"],
+    [3500, "Still reading — it's a dense page…"],
+    [7500, "Almost there…"],
   ]);
   try {
     await ensureSession();

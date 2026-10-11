@@ -378,7 +378,31 @@ def test_session_at_rest_still_holds_no_values(client):
     sid = client.post("/session").json()["session_id"]
     _scan(client, sid)
     stored = store.get(sid).to_dict()
+    # An explicit allowlist, not a subset check: the point is that adding a
+    # field to the session has to be a deliberate act that fails this test
+    # first. Every name here is structure or preference - none is a value
+    # the user typed into their form.
     assert set(stored) == {
         "session_id", "form_id", "form_guess", "language", "simple",
-        "fields", "completed", "history", "created_at", "updated_at",
+        "form_known", "fields", "completed", "history",
+        "created_at", "updated_at",
     }
+
+
+def test_form_identity_is_decided_once_per_session(client):
+    """Turning the page must not make SnapKaki forget which form it is on.
+
+    A later page of a multi-page document carries far less identifying
+    vocabulary than the first - the real CHAS signature page scores right on
+    the matcher's threshold. Once a session has recognised the form, a
+    subsequent scan does not re-argue it.
+    """
+    sid = client.post("/session").json()["session_id"]
+    assert store.get(sid).form_known is False
+
+    _scan(client, sid)
+    assert store.get(sid).form_known is True, "first scan should establish the form"
+
+    # A second scan still guides; it does not fall into the unknown-form path.
+    body = _scan(client, sid).json()
+    assert body["stop_reason"] != "unknown_form"

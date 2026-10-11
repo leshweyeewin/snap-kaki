@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from google.adk.agents import LlmAgent
+from google.genai import types
 
 from app import config
 from app.agents.runtime import clamp_confidence, model_name, parse_json, run_agent
@@ -56,6 +57,16 @@ Return ONLY a JSON object, no prose and no code fence:
   "focus_label": "the label of the field the camera is pointed at, or null",
   "confidence": 0.0 to 1.0 - how sure you are you read this form correctly
 }
+
+GRANULARITY — be consistent about what counts as one field, because two
+photographs of the same page should produce the same list:
+
+- One entry per printed input area, named by its printed label.
+- A repeating table (family members, dependants) is ONE entry, not one per
+  row and not one per column. Describe its columns in "notes".
+- The choices inside a choice field are NOT entries. They go in "options".
+- A label with several parts printed as one field ("Name / NRIC / FIN") is
+  one entry.
 
 Be honest in "confidence". A blurry photo, a cropped page, or a form you do
 not recognise should score low. A low score makes SnapKaki stop and ask for
@@ -117,6 +128,20 @@ def build_agent() -> LlmAgent:
             "asks for, never the values filled in."
         ),
         instruction=INSTRUCTION,
+        # Thinking off for this agent only. Measured over 5 runs on the same
+        # dense page: p50 10.9s -> 8.6s, and the tail collapses from 19.5s to
+        # 9.1s, which is what the user actually feels.
+        #
+        # An earlier pass rejected this, claiming it made extraction
+        # inconsistent. That was a bad read of n=2 against n=2: re-measured
+        # properly, the field-count spread is 6 either way, because the
+        # variance is in what counts as "a field", not in the thinking
+        # budget. The GRANULARITY rules above are the actual fix for that.
+        # Structured extraction from a document is also the kind of task
+        # that has least use for a reasoning budget.
+        generate_content_config=types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+        ),
     )
 
 

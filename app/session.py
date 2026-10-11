@@ -38,6 +38,13 @@ class FormSession:
     # Plain-language mode, asked for by the user. Kept on the session so a
     # reload does not silently drop it; not personal data, not a form value.
     simple: bool = False
+    # Set once, the first time a scan is recognised as the form we hold
+    # guidance for. A multi-page document is photographed page by page,
+    # and a later page carries far less identifying vocabulary than the
+    # first - the CHAS signature page scores right on the threshold. So
+    # identity is decided for the session, not re-argued per photo, and
+    # turning the page cannot make SnapKaki forget which form it is on.
+    form_known: bool = False
     fields: List[DetectedField] = field(default_factory=list)
     completed: List[str] = field(default_factory=list)
     history: List[str] = field(default_factory=list)
@@ -82,6 +89,7 @@ class FormSession:
             "form_guess": self.form_guess,
             "language": self.language,
             "simple": self.simple,
+            "form_known": self.form_known,
             "fields": [asdict(f) for f in self.fields],
             "completed": list(self.completed),
             "history": list(self.history),
@@ -108,6 +116,7 @@ class FormSession:
             form_guess=data.get("form_guess", ""),
             language=data.get("language", config.DEFAULT_LANGUAGE),
             simple=bool(data.get("simple", False)),
+            form_known=bool(data.get("form_known", False)),
             fields=fields,
             completed=list(data.get("completed") or []),
             history=list(data.get("history") or []),

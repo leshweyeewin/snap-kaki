@@ -233,14 +233,93 @@ quietly drift into demonstrating a form that does not exist.
 
 ---
 
-## What we would change
+## 11. The form we hold guidance for is identified explicitly
 
-**Latency.** Reading a dense form page takes Gemini about ten seconds,
-measured. We tried `thinking_budget=0` and it bought roughly 20% while
-making extraction inconsistent, so we did not take it. Right now the client
-escalates its waiting message instead, which is honest but not fast. The
-real fix is probably a smaller first pass that returns the focused field
-quickly and fills the rest behind it.
+**Decision.** [`app/form_match.py`](../app/form_match.py) scores a reading
+against a marker vocabulary before anything is proposed. An unrecognised
+form stops at the gate with `unknown_form`, and we say so.
+
+**The alternative.** Rely on the explainer's refusal, which already works —
+verified, out-of-corpus questions come back at confidence 0.0–0.1.
+
+**Why we rejected it.** That refusal is an emergent property of a prompt,
+and it only protects the *ask* path. Guidance would still cheerfully
+propose "enter your name" on a form it knows nothing about. A safety
+property that matters should not be a side effect.
+
+Two details the measurements forced. Matching on the model's `form_guess`
+alone fails, because photographed page by page it returns headings that
+never mention the scheme — so field labels count too. And markers match on
+word boundaries, because `fin` otherwise matches inside `confirm`.
+
+Form identity is also decided **once per session**. A later page of a
+multi-page document carries far less identifying vocabulary than the first,
+and turning the page should not make SnapKaki forget which form it is on.
+
+## 12. Search locates the authority; it never interprets the form
+
+**Decision.** When a form is unrecognised,
+[`app/agents/signpost.py`](../app/agents/signpost.py) uses Gemini with
+Google Search to answer exactly one question: which official body is
+responsible, and where is their page. Any URL that is not on a government
+domain allowlist is dropped before it reaches the client.
+
+**The alternative.** Use search grounding to answer the user's actual
+question when the corpus cannot. This is the obvious feature request and
+it is what we were asked for.
+
+**Why we rejected it.** It would reintroduce, exactly, the failure that
+decision 4 exists to prevent. The reason we do not let the model answer
+from its own knowledge is that it is confidently wrong about form
+revisions; the open web is worse, because it is full of visa-agency pages
+that read as authoritative. On a visa application — the highest-stakes
+example in our own pitch — a confident wrong answer is the most expensive
+thing this product could produce.
+
+So the boundary is: **locate, never interpret.** The user is told plainly
+that we will not explain this form, and handed whoever can.
+
+## 13. The claims are measured, not asserted
+
+**Decision.** [`evals/run_eval.py`](../evals/run_eval.py) runs the
+experiment behind each claim in this document and writes
+[`evals/REPORT.md`](../evals/REPORT.md). Gate and form-match run offline and
+exhaustively; grounding, refusal and latency call the real model.
+
+**Why.** Every claim here is phrased as something falsifiable, which is
+worth little if nobody tries to falsify it. It has already earned its keep:
+it caught a grounding assertion that was checking the wrong field, and it
+produced the latency numbers that overturned the decision below.
+
+## What we would change, and one we got wrong
+
+**We were wrong about `thinking_budget`.** An earlier pass rejected
+disabling it, claiming it made extraction inconsistent. That was a bad read
+of n=2 against n=2. Measured properly over five runs each, the field-count
+spread was **6 either way** — the variance was never about thinking, it was
+about what counts as "a field". Disabling it is a clear win:
+
+| | p50 | max | field spread |
+|---|---|---|---|
+| thinking default | 10.9s | 19.5s | 6 |
+| `thinking_budget=0` | 8.6s | 9.1s | 6 |
+
+Adding explicit granularity rules to the vision prompt — a repeating table
+is one field, printed choices are options not fields — then took the spread
+to **0** across five runs on two different pages, and p50 to 7.1s.
+
+End to end that moved the eval from p50 20.2s / p95 37.6s to **p50 7.8s /
+p95 9.4s**. The lesson is not about a flag; it is that the first
+explanation for a bad measurement was plausible, cheap to believe, and
+wrong, and only a bigger sample showed it.
+
+**One form.** The corpus is the unit of scale and it is hand-written. The
+right trade for a demo that has to be right, the wrong one for a product
+that has to be broad.
+
+**Languages are unreviewed.** Non-English output is generated and
+structurally correct, but has not been checked by native speakers. Treat
+the dialect support as a demonstration of the mechanism.
 
 **One form.** The corpus is the unit of scale and it is hand-written. That
 is the correct trade for a demo that has to be right, and the wrong one for
