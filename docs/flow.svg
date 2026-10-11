@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" width="1000" height="560" font-family="Figtree, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="SnapKaki turn flow: a photo is read, the form is matched against the corpus, a known form is explained and guided through a gate, an unknown form is refused and signposted.">
+  <rect width="1000" height="560" fill="#ffffff"/>
+
+  <defs>
+    <marker id="f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#566460"/>
+    </marker>
+    <marker id="fT" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0e6e66"/>
+    </marker>
+    <marker id="fG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#96580a"/>
+    </marker>
+  </defs>
+
+  <text x="36" y="38" font-size="18" font-weight="800" fill="#16211f">One turn, start to finish</text>
+  <text x="36" y="60" font-size="12.5" fill="#5a6b66">Every path that could end in an instruction passes through the gate.</text>
+
+  <!-- 1. point -->
+  <rect x="36" y="96" width="150" height="78" rx="13" fill="#e3f0ee" stroke="#0e6e66" stroke-width="1.8"/>
+  <text x="111" y="128" font-size="13.5" font-weight="700" fill="#0e6e66" text-anchor="middle">Point the camera</text>
+  <text x="111" y="148" font-size="11.5" fill="#5a6b66" text-anchor="middle">photo downscaled</text>
+  <text x="111" y="164" font-size="11.5" fill="#5a6b66" text-anchor="middle">on the phone</text>
+
+  <line x1="190" y1="135" x2="228" y2="135" stroke="#566460" stroke-width="1.6" marker-end="url(#f)"/>
+
+  <!-- 2. vision -->
+  <rect x="232" y="96" width="162" height="78" rx="13" fill="#ffffff" stroke="#c9c2b6" stroke-width="1.5"/>
+  <text x="313" y="124" font-size="13.5" font-weight="700" fill="#16211f" text-anchor="middle">Vision reads it</text>
+  <text x="313" y="144" font-size="11.5" fill="#5a6b66" text-anchor="middle">what the form ASKS</text>
+  <text x="313" y="160" font-size="11.5" fill="#5a6b66" text-anchor="middle">never what you wrote</text>
+
+  <line x1="398" y1="135" x2="436" y2="135" stroke="#566460" stroke-width="1.6" marker-end="url(#f)"/>
+
+  <!-- 3. decision: known form? -->
+  <path d="M530 96 L612 135 L530 174 L448 135 Z" fill="#faf8f5" stroke="#16211f" stroke-width="1.8"/>
+  <text x="530" y="131" font-size="12.5" font-weight="700" fill="#16211f" text-anchor="middle">Do we hold</text>
+  <text x="530" y="148" font-size="12.5" font-weight="700" fill="#16211f" text-anchor="middle">guidance?</text>
+
+  <!-- NO branch, up and right -->
+  <path d="M530 92 L530 70 L700 70" fill="none" stroke="#96580a" stroke-width="1.8" marker-end="url(#fG)"/>
+  <text x="541" y="88" font-size="11.5" font-weight="700" fill="#96580a">no</text>
+
+  <rect x="704" y="30" width="260" height="66" rx="12" fill="#fdf3e2" stroke="#96580a" stroke-width="2"/>
+  <text x="834" y="55" font-size="12.5" font-weight="700" fill="#96580a" text-anchor="middle">Refuse, and signpost</text>
+  <text x="834" y="74" font-size="11" fill="#6b4208" text-anchor="middle">search finds the official body.</text>
+  <text x="834" y="88" font-size="11" fill="#6b4208" text-anchor="middle">It locates; it never interprets.</text>
+
+  <!-- YES branch down -->
+  <line x1="530" y1="178" x2="530" y2="212" stroke="#0e6e66" stroke-width="1.8" marker-end="url(#fT)"/>
+  <text x="540" y="200" font-size="11.5" font-weight="700" fill="#0e6e66">yes</text>
+
+  <!-- 4. the two reasoning agents -->
+  <rect x="232" y="216" width="270" height="80" rx="13" fill="#ffffff" stroke="#c9c2b6" stroke-width="1.5"/>
+  <text x="367" y="243" font-size="13" font-weight="700" fill="#16211f" text-anchor="middle">Explain this field</text>
+  <text x="367" y="262" font-size="11.5" fill="#5a6b66" text-anchor="middle">only from retrieved guidance</text>
+  <text x="367" y="279" font-size="11.5" fill="#5a6b66" text-anchor="middle">— or say it does not know</text>
+
+  <rect x="558" y="216" width="270" height="80" rx="13" fill="#ffffff" stroke="#c9c2b6" stroke-width="1.5"/>
+  <text x="693" y="243" font-size="13" font-weight="700" fill="#16211f" text-anchor="middle">Decide the next step</text>
+  <text x="693" y="262" font-size="11.5" fill="#5a6b66" text-anchor="middle">exactly one, and name</text>
+  <text x="693" y="279" font-size="11.5" fill="#5a6b66" text-anchor="middle">what kind of action it is</text>
+
+  <path d="M502 256 L530 256 L530 212" fill="none" stroke="#0e6e66" stroke-width="1.6"/>
+  <path d="M558 256 L530 256" fill="none" stroke="#0e6e66" stroke-width="1.6"/>
+  <line x1="367" y1="300" x2="367" y2="334" stroke="#566460" stroke-width="1.6" marker-end="url(#f)"/>
+  <line x1="693" y1="300" x2="693" y2="334" stroke="#566460" stroke-width="1.6" marker-end="url(#f)"/>
+
+  <!-- 5. the gate -->
+  <rect x="232" y="338" width="596" height="80" rx="13" fill="#fdf3e2" stroke="#96580a" stroke-width="2.6"/>
+  <text x="530" y="366" font-size="14" font-weight="800" fill="#96580a" text-anchor="middle">THE CONFIDENCE GATE — plain Python, not a model</text>
+  <text x="530" y="387" font-size="11.5" fill="#6b4208" text-anchor="middle">stops on: sign · consent · submit · pay · confirm · agree · unknown form · low confidence</text>
+  <text x="530" y="405" font-size="11.5" fill="#6b4208" text-anchor="middle">A prompt can be argued out of stopping. A function cannot.</text>
+
+  <line x1="380" y1="422" x2="380" y2="452" stroke="#0e6e66" stroke-width="1.8" marker-end="url(#fT)"/>
+  <line x1="680" y1="422" x2="680" y2="452" stroke="#96580a" stroke-width="1.8" marker-end="url(#fG)"/>
+
+  <rect x="232" y="456" width="296" height="62" rx="12" fill="#e3f0ee" stroke="#0e6e66" stroke-width="1.8"/>
+  <text x="380" y="481" font-size="13" font-weight="700" fill="#0e6e66" text-anchor="middle">Allowed → one next step</text>
+  <text x="380" y="501" font-size="11" fill="#5a6b66" text-anchor="middle">shown with the guidance it came from</text>
+
+  <rect x="532" y="456" width="296" height="62" rx="12" fill="#fdf3e2" stroke="#96580a" stroke-width="1.8"/>
+  <text x="680" y="481" font-size="13" font-weight="700" fill="#96580a" text-anchor="middle">Stopped → loop in family</text>
+  <text x="680" y="501" font-size="11" fill="#6b4208" text-anchor="middle">a text message, never a photo of the form</text>
+
+  <!-- back to the person -->
+  <path d="M232 487 L120 487 L120 190" fill="none" stroke="#566460" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#f)"/>
+  <text x="128" y="300" font-size="11" fill="#5a6b66">back to</text>
+  <text x="128" y="316" font-size="11" fill="#5a6b66">the person</text>
+
+  <text x="852" y="487" font-size="11" fill="#5a6b66">Nothing is ever</text>
+  <text x="852" y="503" font-size="11" fill="#5a6b66">submitted for you.</text>
+</svg>
