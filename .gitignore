@@ -25,6 +25,13 @@ service-account*.json
 *.m4v
 *.webm
 
+# --- firebase ---
+# firebase.json (hosting rules) IS source and stays. These are not:
+# .firebase/ is a local deploy cache, and .firebaserc only names which
+# project to deploy to - a deployment value, like GOOGLE_CLOUD_PROJECT.
+.firebase/
+.firebaserc
+
 # --- tooling and local state ---
 .venv/
 venv/
@@ -33,7 +40,6 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
-.claude/
 .idea/
 .vscode/
 *.log

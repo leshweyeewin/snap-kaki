@@ -134,15 +134,26 @@ command for the vector index; `find_nearest` fails until that index builds.
 
 ---
 
-## Deploy to Cloud Run
+## Deploy
+
+Two pieces: the API on Cloud Run, the web client on Firebase Hosting with
+`/session`, `/turn` and `/api/**` rewritten through to the service.
 
 ```bash
 gcloud run deploy snapkaki \
   --source . \
   --region asia-southeast1 \
   --allow-unauthenticated \
+  --max-instances 3 \
   --set-env-vars USE_STUB=false,GOOGLE_GENAI_USE_VERTEXAI=TRUE
+
+# .firebaserc is not in the repo (it names a deployment project), so either
+# create it with `firebase use --add` or pass --project explicitly.
+firebase deploy --only hosting --project your-project-id
 ```
+
+`--max-instances 3` is deliberate: the endpoint is public and every scan is
+a billed Gemini call, so the cap bounds the damage if the URL is scraped.
 
 Prerequisites, once per project:
 
