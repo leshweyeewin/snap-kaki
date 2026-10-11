@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 600" width="980" height="600" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" role="img" aria-label="SnapKaki architecture: a phone posts a form photo to a FastAPI service on Cloud Run, a deterministic orchestrator routes to four ADK agents backed by Gemini and Firestore, and a plain-Python confidence gate sits on the way out.">
+  <rect width="980" height="600" fill="#ffffff"/>
+
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#566460"/>
+    </marker>
+    <marker id="aT" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0f766e"/>
+    </marker>
+    <marker id="aG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9a5b06"/>
+    </marker>
+  </defs>
+
+  <text x="40" y="38" font-size="17" font-weight="700" fill="#1b2422">SnapKaki — architecture</text>
+  <text x="40" y="59" font-size="12.5" fill="#566460">One form, read and explained. Nothing irreversible without a person.</text>
+
+  <!-- Cloud Run container -->
+  <rect x="250" y="84" width="460" height="470" rx="14" fill="#f7f5f1" stroke="#d8d2c8" stroke-width="1.5"/>
+  <text x="266" y="104" font-size="11.5" font-weight="700" fill="#566460" letter-spacing="0.08em">CLOUD RUN</text>
+
+  <!-- Phone -->
+  <rect x="40" y="112" width="162" height="84" rx="12" fill="#e6f2f0" stroke="#0f766e" stroke-width="1.6"/>
+  <text x="121" y="143" font-size="13.5" font-weight="650" fill="#0f766e" text-anchor="middle">Phone browser</text>
+  <text x="121" y="163" font-size="12" fill="#566460" text-anchor="middle">camera · screenshot</text>
+  <text x="121" y="181" font-size="12" fill="#566460" text-anchor="middle">mobile-first PWA</text>
+
+  <text x="40" y="228" font-size="11.5" font-weight="700" fill="#0f766e">PII BOUNDARY</text>
+  <text x="40" y="247" font-size="11.5" fill="#566460">The user types values into the</text>
+  <text x="40" y="263" font-size="11.5" fill="#566460">form itself, never into SnapKaki.</text>
+  <text x="40" y="279" font-size="11.5" fill="#566460">There is no field in the data</text>
+  <text x="40" y="295" font-size="11.5" fill="#566460">model to hold one. Redaction</text>
+  <text x="40" y="311" font-size="11.5" fill="#566460">masks anything sent upward.</text>
+
+  <line x1="204" y1="148" x2="264" y2="148" stroke="#566460" stroke-width="1.6" marker-end="url(#a)"/>
+
+  <!-- FastAPI -->
+  <rect x="270" y="122" width="420" height="52" rx="10" fill="#ffffff" stroke="#c9c2b6" stroke-width="1.4"/>
+  <text x="286" y="143" font-size="13.5" font-weight="650" fill="#1b2422">FastAPI</text>
+  <text x="286" y="161" font-size="11.5" fill="#566460">POST /session · POST /turn · serves the web client, same origin</text>
+
+  <line x1="480" y1="174" x2="480" y2="192" stroke="#566460" stroke-width="1.6" marker-end="url(#a)"/>
+
+  <!-- Orchestrator -->
+  <rect x="270" y="196" width="420" height="52" rx="10" fill="#ffffff" stroke="#0f766e" stroke-width="1.8"/>
+  <text x="286" y="217" font-size="13.5" font-weight="650" fill="#1b2422">Orchestrator</text>
+  <text x="286" y="235" font-size="11.5" fill="#566460">deterministic routing — the turn's shape picks the agent, not a model</text>
+
+  <line x1="480" y1="248" x2="480" y2="270" stroke="#566460" stroke-width="1.6" marker-end="url(#a)"/>
+
+  <!-- Agents -->
+  <rect x="270" y="274" width="98" height="86" rx="9" fill="#ffffff" stroke="#c9c2b6" stroke-width="1.4"/>
+  <text x="319" y="303" font-size="12.5" font-weight="650" fill="#1b2422" text-anchor="middle">vision</text>
+  <text x="319" y="322" font-size="10.5" fill="#566460" text-anchor="middle">reads what the</text>
+  <text x="319" y="336" font-size="10.5" fill="#566460" text-anchor="middle">form asks, never</text>
+  <text x="319" y="350" font-size="10.5" fill="#566460" text-anchor="middle">what you wrote</text>
+
+  <rect x="376" y="274" width="98" height="86" rx="9" fill="#ffffff" stroke="#c9c2b6" stroke-width="1.4"/>
+  <text x="425" y="303" font-size="12.5" font-weight="650" fill="#1b2422" text-anchor="middle">explainer</text>
+  <text x="425" y="322" font-size="10.5" fill="#566460" text-anchor="middle">answers only</text>
+  <text x="425" y="336" font-size="10.5" fill="#566460" text-anchor="middle">from retrieved</text>
+  <text x="425" y="350" font-size="10.5" fill="#566460" text-anchor="middle">guidance</text>
+
+  <rect x="482" y="274" width="98" height="86" rx="9" fill="#ffffff" stroke="#c9c2b6" stroke-width="1.4"/>
+  <text x="531" y="303" font-size="12.5" font-weight="650" fill="#1b2422" text-anchor="middle">guidance</text>
+  <text x="531" y="322" font-size="10.5" fill="#566460" text-anchor="middle">one next step,</text>
+  <text x="531" y="336" font-size="10.5" fill="#566460" text-anchor="middle">and names the</text>
+  <text x="531" y="350" font-size="10.5" fill="#566460" text-anchor="middle">action kind</text>
+
+  <rect x="588" y="274" width="102" height="86" rx="9" fill="#ffffff" stroke="#c9c2b6" stroke-width="1.4"/>
+  <text x="639" y="303" font-size="12.5" font-weight="650" fill="#1b2422" text-anchor="middle">family loop</text>
+  <text x="639" y="322" font-size="10.5" fill="#566460" text-anchor="middle">drafts a text</text>
+  <text x="639" y="336" font-size="10.5" fill="#566460" text-anchor="middle">message — text</text>
+  <text x="639" y="350" font-size="10.5" fill="#566460" text-anchor="middle">only, no image</text>
+
+  <text x="480" y="378" font-size="11" font-weight="700" fill="#566460" text-anchor="middle" letter-spacing="0.06em">FOUR ADK LlmAgents</text>
+
+  <line x1="480" y1="386" x2="480" y2="402" stroke="#9a5b06" stroke-width="2" marker-end="url(#aG)"/>
+
+  <!-- The gate -->
+  <rect x="270" y="406" width="420" height="76" rx="10" fill="#fdf4e3" stroke="#9a5b06" stroke-width="2.4"/>
+  <text x="286" y="429" font-size="13.5" font-weight="700" fill="#9a5b06">confidence gate — plain Python, not a model</text>
+  <text x="286" y="449" font-size="11.5" fill="#6b4a12">Always stops: sign · consent · submit · pay · confirm · agree</text>
+  <text x="286" y="467" font-size="11.5" fill="#6b4a12">A prompt can be argued out of stopping. A function cannot.</text>
+
+  <line x1="372" y1="482" x2="372" y2="500" stroke="#0f766e" stroke-width="1.6" marker-end="url(#aT)"/>
+  <line x1="588" y1="482" x2="588" y2="500" stroke="#9a5b06" stroke-width="1.6" marker-end="url(#aG)"/>
+
+  <rect x="270" y="504" width="205" height="38" rx="8" fill="#e6f2f0" stroke="#0f766e" stroke-width="1.4"/>
+  <text x="372" y="528" font-size="12" font-weight="650" fill="#0f766e" text-anchor="middle">allowed → one next step</text>
+
+  <rect x="485" y="504" width="205" height="38" rx="8" fill="#fdf4e3" stroke="#9a5b06" stroke-width="1.4"/>
+  <text x="588" y="528" font-size="12" font-weight="650" fill="#9a5b06" text-anchor="middle">stopped → ask family</text>
+
+  <!-- return path: hugs the left edge so it clears the PII note -->
+  <path d="M270 523 L24 523 L24 154 L34 154" fill="none" stroke="#566460" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#a)"/>
+  <text x="120" y="516" font-size="11" fill="#566460">response</text>
+
+  <!-- External Google services -->
+  <rect x="762" y="196" width="178" height="72" rx="10" fill="#eef2f6" stroke="#334155" stroke-width="1.5"/>
+  <text x="851" y="223" font-size="13" font-weight="650" fill="#1b2422" text-anchor="middle">Gemini 2.5 Flash</text>
+  <text x="851" y="242" font-size="11.5" fill="#566460" text-anchor="middle">via Vertex AI</text>
+  <text x="851" y="258" font-size="11.5" fill="#566460" text-anchor="middle">multimodal: image + text</text>
+
+  <rect x="762" y="300" width="178" height="96" rx="10" fill="#eef2f6" stroke="#334155" stroke-width="1.5"/>
+  <text x="851" y="327" font-size="13" font-weight="650" fill="#1b2422" text-anchor="middle">Firestore</text>
+  <text x="851" y="347" font-size="11.5" fill="#566460" text-anchor="middle">vector search over the</text>
+  <text x="851" y="363" font-size="11.5" fill="#566460" text-anchor="middle">grounding corpus</text>
+  <text x="851" y="383" font-size="11.5" fill="#566460" text-anchor="middle">+ session state</text>
+
+  <path d="M692 300 L740 300 L740 240 L756 240" fill="none" stroke="#566460" stroke-width="1.5" marker-end="url(#a)"/>
+  <path d="M692 330 L740 330 L740 348 L756 348" fill="none" stroke="#566460" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <text x="762" y="430" font-size="11.5" font-weight="700" fill="#566460" letter-spacing="0.06em">GROUNDING</text>
+  <text x="762" y="449" font-size="11.5" fill="#566460">Retrieval returns nothing</text>
+  <text x="762" y="465" font-size="11.5" fill="#566460">→ the explainer says it</text>
+  <text x="762" y="481" font-size="11.5" fill="#566460">does not know, rather</text>
+  <text x="762" y="497" font-size="11.5" fill="#566460">than improvising. That</text>
+  <text x="762" y="513" font-size="11.5" fill="#566460">refusal is what makes</text>
+  <text x="762" y="529" font-size="11.5" fill="#566460">the breadth safe.</text>
+</svg>

@@ -32,20 +32,10 @@ Cloud Run service; today Cloud Run serves the front end directly, which keeps
 
 ## Architecture
 
-```
-          camera / screenshot
-                  |
-          FastAPI  (app/main.py)
-                  |
-          orchestrator  (app/orchestrator.py)   <- deterministic routing
-                  |
-    +-------------+-------------+---------------+--------------+
-    |             |             |               |              |
-  vision    field_explainer  guidance    confidence_gate   family_loop
- LlmAgent      LlmAgent      LlmAgent     plain Python       LlmAgent
-                  |             |               |
-              Firestore RAG  Firestore RAG   frozen rules
-```
+![SnapKaki architecture: a phone posts a form photo to a FastAPI service on
+Cloud Run; a deterministic orchestrator routes to four ADK agents backed by
+Gemini and Firestore; a plain-Python confidence gate sits on the way
+out.](docs/architecture.svg)
 
 ### Three decisions worth defending
 
