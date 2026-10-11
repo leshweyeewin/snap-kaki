@@ -19,7 +19,14 @@
     ],
     "headers": [
       {
-        "source": "/index.html",
+        "_comment": "Both patterns are needed. Firebase matches the REQUEST path, not the file it resolves to, so a rule on /index.html alone never fires for a browser asking for / - which is every visitor. That left the root page on Firebase's default one-hour cache while every other asset was fresh, so a deploy appeared not to land.",
+        "source": "/",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, max-age=0" }
+        ]
+      },
+      {
+        "source": "**/*.html",
         "headers": [
           { "key": "Cache-Control", "value": "no-cache, max-age=0" }
         ]
