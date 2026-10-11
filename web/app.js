@@ -30,9 +30,23 @@ function toast(message, ms = 2600) {
   toast._t = setTimeout(() => { el.hidden = true; }, ms);
 }
 
-function busy(on, text = "Thinking…") {
+/* Reading a dense form page takes Gemini around ten seconds, measured. That
+ * is too long to show a bare spinner: silence past about three seconds reads
+ * as broken. So the message escalates while we wait — it says nothing untrue,
+ * it just keeps admitting that we are still here. */
+let busyTimers = [];
+
+function busy(on, text = "Thinking…", followUps = []) {
+  busyTimers.forEach(clearTimeout);
+  busyTimers = [];
   $("busy-text").textContent = text;
   $("busy").hidden = !on;
+  if (!on) return;
+  followUps.forEach(([afterMs, message]) => {
+    busyTimers.push(setTimeout(() => {
+      $("busy-text").textContent = message;
+    }, afterMs));
+  });
 }
 
 async function post(path, formData) {
@@ -213,7 +227,10 @@ async function ensureSession() {
 
 async function scan(file) {
   if (!file) return;
-  busy(true, "Reading the form…");
+  busy(true, "Reading the form…", [
+    [4000, "Still reading — it's a dense page…"],
+    [9000, "Almost there…"],
+  ]);
   try {
     await ensureSession();
     const image = await downscale(file);

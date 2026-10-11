@@ -1,0 +1,39 @@
+{
+  "hosting": {
+    "site": "snapkaki",
+    "public": "web",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "/session",
+        "run": { "serviceId": "snapkaki", "region": "asia-southeast1" }
+      },
+      {
+        "source": "/turn",
+        "run": { "serviceId": "snapkaki", "region": "asia-southeast1" }
+      },
+      {
+        "source": "/api/**",
+        "run": { "serviceId": "snapkaki", "region": "asia-southeast1" }
+      }
+    ],
+    "headers": [
+      {
+        "source": "/index.html",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, max-age=0" }
+        ]
+      },
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [
+          {
+            "_comment": "no-cache means revalidate, not 'do not store': the CDN still serves a fast 304 when nothing changed. These files are ~10KB, so a real max-age buys almost nothing and costs a stale build at the worst moment - push a fix on demo day and the edge serves the old one.",
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      }
+    ]
+  }
+}
