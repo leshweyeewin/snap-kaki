@@ -360,7 +360,17 @@ def test_simple_mode_reaches_the_prompt():
     assert SIMPLE_MODE.strip() not in plain
     assert SIMPLE_MODE.strip() in simple
     # Shorten the sentences, not the answer - and never patronise.
+    assert "Shorten the SENTENCES, not the answer" in SIMPLE_MODE
     assert "Do not talk down" in SIMPLE_MODE
+    # The anti-abstraction rule, kept because the first version of this
+    # prompt made output WORSE: asked to simplify, the model rewrote
+    # "whether you rent or own" as "how you occupy your home". Being
+    # explicit about concreteness is what fixed it.
+    assert "CONCRETE" in SIMPLE_MODE
+    # Whitespace-normalised: the prompt is hard-wrapped, so the phrase spans
+    # a line break in the source.
+    flat = " ".join(SIMPLE_MODE.split())
+    assert "how you occupy your home" in flat
 
 
 def test_session_at_rest_still_holds_no_values(client):

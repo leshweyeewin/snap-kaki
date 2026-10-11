@@ -104,10 +104,18 @@ def _get_agent() -> LlmAgent:
 # vocabulary rather than tone: "simpler" must not become patronising, and the
 # person asking for it is confused by a form, not slow.
 SIMPLE_MODE = """
-PLAIN LANGUAGE: this person has asked for the simplest version. Use short
-sentences, one idea each. Everyday words only - no scheme names, no
-abbreviations, no officialese. Do not shorten the answer by leaving out what
-they need; shorten the sentences. Do not talk down to them.
+PLAIN LANGUAGE: this person has asked for the simplest version.
+
+- Short sentences, one idea each. Under 12 words where you can.
+- The most CONCRETE everyday words available. Never reach for an abstract
+  phrase when a plain one exists: write "do you rent or own?", never "how
+  you occupy your home". Abstraction is the opposite of simple, and it is
+  the usual way a rewrite gets worse instead of better.
+- Name the thing they can look at or hold: the card, the letter, the lease.
+- No scheme names, no abbreviations, no officialese.
+- Shorten the SENTENCES, not the answer. Leaving out what they need is not
+  simplifying.
+- Do not talk down to them. They are confused by a form, not slow.
 """
 
 
