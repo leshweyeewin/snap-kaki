@@ -56,6 +56,23 @@ if not USE_STUB and not PROJECT_ID:
 # Firestore partition key, so stale chunks stop being retrieved rather than
 # silently mixing with new ones.
 DEMO_FORM_ID = os.environ.get("DEMO_FORM_ID", "chas-application-2025-12")
+DEMO_FORM_NAME = "the CHAS application form"
+
+# Vocabulary that identifies the form we actually hold guidance for.
+#
+# Matching on the model's `form_guess` alone is not enough: photographed page
+# by page, it returns "Application for CHAS Subsidies" for the cover and
+# "Particulars of Main Applicant and Family Members" for page 2, which names
+# no scheme at all. So the check also looks at the field labels, which are
+# distinctive even when the page heading is not.
+FORM_MARKERS = {
+    "chas", "nric", "dwelling type", "rental status", "birth certificate",
+    "fin", "pioneer generation", "merdeka", "community health assist",
+}
+# Score: a marker in the form name counts double, one in a field label counts
+# once. Two is enough to be confident; see tests/test_form_match.py for the
+# real pages this was calibrated against.
+FORM_MATCH_THRESHOLD = 2
 
 # Languages the field-explainer will answer in. Keys are what the client sends.
 SUPPORTED_LANGUAGES = {

@@ -20,8 +20,15 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from app import config
-from app.agents import confidence_gate, family_loop, field_explainer, guidance, vision
+from app import config, form_match
+from app.agents import (
+    confidence_gate,
+    family_loop,
+    field_explainer,
+    guidance,
+    signpost,
+    vision,
+)
 from app.session import FormSession, store
 
 logger = logging.getLogger(__name__)
@@ -42,6 +49,9 @@ class TurnResult:
     stop_reason: Optional[str] = None
     offer_family_loop: bool = False
     confidence: float = 0.0
+    # Official page for a form we do not hold guidance for. Only ever set
+    # from an allowlisted government domain; see agents/signpost.py.
+    authority_url: Optional[str] = None
     fields: List[Dict[str, Any]] = field(default_factory=list)
     completed: List[str] = field(default_factory=list)
     sources: List[str] = field(default_factory=list)
@@ -59,6 +69,7 @@ class TurnResult:
             "stop_reason": self.stop_reason,
             "offer_family_loop": self.offer_family_loop,
             "confidence": round(self.confidence, 2),
+            "authority_url": self.authority_url,
             "fields": self.fields,
             "completed": self.completed,
             "sources": self.sources,
@@ -164,7 +175,56 @@ async def handle_scan(
     session.note(f"read the form: {reading.form_guess}")
     store.save(session)
 
+    # Do we actually hold guidance for this? The explainer refuses
+    # out-of-corpus questions on its own, but guidance would still propose
+    # plausible-sounding steps on a form it knows nothing about. Decide it
+    # here, once, before anything is proposed.
+    seen = form_match.match(reading.form_guess, (f.label for f in reading.fields))
+    if seen.unknown:
+        logger.info(
+            "unrecognised form (score=%d, matched=%s): %r",
+            seen.score, seen.matched, reading.form_guess,
+        )
+        return await _handle_unknown_form(session, reading)
+
     return await _guide(session, kind="scan")
+
+
+async def _handle_unknown_form(session: FormSession, reading) -> TurnResult:
+    """A form we hold no corpus for. Refuse to guide, then point at whoever
+    is actually responsible for it.
+
+    The signpost is the only part of SnapKaki that touches the open web, and
+    it locates rather than interprets - see app/agents/signpost.py. We still
+    say plainly that we will not explain this form.
+    """
+    decision = confidence_gate.evaluate(
+        action="read", confidence=reading.confidence, known_form=False
+    )
+
+    result = _base(session, "unknown_form")
+    result.stopped = True
+    result.stop_reason = decision.reason.value if decision.reason else None
+    result.message = decision.message
+    result.confidence = reading.confidence
+    result.offer_family_loop = decision.offer_family_loop
+
+    post = await signpost.find(reading.form_guess)
+    if post.useful:
+        detail = f"This looks like it belongs to {post.authority}."
+        if post.contact:
+            detail += f" You can reach them on {post.contact}."
+        result.detail = detail
+        result.authority_url = post.url
+    else:
+        result.detail = (
+            "I couldn't work out which agency issues this one either. The "
+            "office you got the form from will know."
+        )
+
+    session.note(f"unrecognised form: {reading.form_guess}")
+    store.save(session)
+    return result
 
 
 async def handle_question(

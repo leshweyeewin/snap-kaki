@@ -29,6 +29,7 @@ class Stop(str, Enum):
     LOW_CONFIDENCE = "low_confidence"
     NO_READING = "no_reading"
     ASK_SOMEONE = "ask_someone"
+    UNKNOWN_FORM = "unknown_form"
 
 
 @dataclass
@@ -68,6 +69,11 @@ _MESSAGES = {
         "This one genuinely needs a person — either someone in your family "
         "or the agency itself. I don't want to guess at it."
     ),
+    Stop.UNKNOWN_FORM: (
+        "I don't have checked guidance for this form, so I'm not going to "
+        "walk you through it. I'd be guessing, and that's the one thing I "
+        "shouldn't do on a form that matters."
+    ),
 }
 
 _ACTION_PHRASES = {
@@ -86,11 +92,17 @@ def evaluate(
     confidence: float,
     ask_someone: bool = False,
     could_read: bool = True,
+    known_form: bool = True,
 ) -> GateDecision:
     """Decide whether a proposed next step may be shown as an instruction.
 
     Checked in order of severity, so an irreversible action is reported as
     such even when confidence is also low.
+
+    `known_form` is checked second, right after legibility: if we do not
+    hold guidance for this form there is nothing to say about any step on
+    it, irreversible or not. Characterising the action would imply we had
+    understood the document.
     """
     action = (action or "").strip().lower()
 
@@ -100,6 +112,16 @@ def evaluate(
             reason=Stop.NO_READING,
             message=_MESSAGES[Stop.NO_READING],
             offer_family_loop=False,
+            confidence=confidence,
+            action=action,
+        )
+
+    if not known_form:
+        return GateDecision(
+            allow=False,
+            reason=Stop.UNKNOWN_FORM,
+            message=_MESSAGES[Stop.UNKNOWN_FORM],
+            offer_family_loop=True,
             confidence=confidence,
             action=action,
         )
