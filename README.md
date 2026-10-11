@@ -1,17 +1,38 @@
 # SnapKaki
 
-**Point your phone at a confusing form. Get one clear next step.**
+**Point your phone at a confusing form. Get one clear next step — and a hard
+stop before anything you cannot undo.**
 
-Confusing forms are not an elderly problem. They are a *this form is
-genuinely hard* problem. A senior engineer gets stuck on a visa form. The
-real user is anyone facing a consequential form they do not fully
-understand — the elderly are the sharpest case, not the whole market.
+| | |
+|---|---|
+| **Live app** | **https://snapkaki.web.app** |
+| API service | https://snapkaki-1016762985649.asia-southeast1.run.app |
+| Why it exists | [docs/why.md](docs/why.md) |
+| Architecture and the decisions behind it | [docs/architecture.md](docs/architecture.md) |
 
-SnapKaki reads what a form **asks**, explains it in the user's language,
-gives one next step at a time, and **stops before anything irreversible**.
+The app is served from Firebase Hosting, which rewrites `/session`, `/turn`
+and `/api/**` through to the Cloud Run service. Both links above work; the
+first is the one to use.
 
-The demo walks one form end to end: the **CHAS** application form
-(Singapore's Community Health Assist Scheme — a health subsidy card).
+---
+
+My father could not work out how to log out of his email, and later could
+not interpret an employment onboarding form. Last month a visa form defeated
+me — and I am a senior engineer with a Master's in AI.
+
+Those are the same problem. Neither of us was beaten by a device; we were
+beaten by a document that would not explain itself, where being wrong had a
+cost we could not see the size of. Confusing forms are not an elderly
+problem. They stop a retiree and a senior engineer at the same wall.
+
+SnapKaki reads what a form **asks**, explains it in the user's language, one
+step at a time — and refuses to walk anyone through a signature, a consent
+clause or a submission. [The full case, and why translation, chatbots and
+autofill do not close it, is in docs/why.md](docs/why.md).
+
+The demo walks one form end to end: the **CHAS** application
+(Singapore's Community Health Assist Scheme — a health subsidy card),
+Dec 2025 revision.
 
 ---
 
@@ -19,71 +40,38 @@ The demo walks one form end to end: the **CHAS** application form
 
 | Service | What it does here |
 |---|---|
-| **Gemini** (`gemini-2.5-flash`, via Vertex AI) | Multimodal. Reads the form photo; writes every explanation and step. |
-| **Google ADK** (Agent Development Kit) | Each sub-agent is an ADK `LlmAgent` run through an ADK `Runner`. |
-| **Firestore** | Vector store for the grounding corpus (`find_nearest`), plus session state. |
-| **Cloud Run** | Hosts the FastAPI app and serves the mobile web front end from one origin. |
+| **Gemini** (`gemini-2.5-flash`, via Vertex AI) | Multimodal. Reads the form photo; writes every explanation and step |
+| **Firestore** | Vector search (`find_nearest`) over the grounding corpus, plus session state |
+| **Cloud Run** | Hosts the FastAPI service |
+| **Firebase Hosting** | Serves the mobile web client, rewriting the API through to Cloud Run |
 
-Firebase is used for hosting/auth only if the deployment grows past a single
-Cloud Run service; today Cloud Run serves the front end directly, which keeps
-`getUserMedia` and the API on the same origin and avoids a CORS hop.
+Agents are orchestrated with **Google ADK** — one `LlmAgent` per sub-agent,
+run through an ADK `Runner`.
 
----
+## Three things worth knowing
 
-## Architecture
+**The gate is a function, not a prompt.** A prompt that says *always stop
+before a signature* can be argued out of stopping. A function returning
+`allow=False` cannot. It has no network call and its own tests.
 
-![SnapKaki architecture: a phone posts a form photo to a FastAPI service on
-Cloud Run; a deterministic orchestrator routes to four ADK agents backed by
-Gemini and Firestore; a plain-Python confidence gate sits on the way
-out.](docs/architecture.svg)
+**There is no field for a value.** The session schema stores field labels
+and which ones are done. "SnapKaki never sees your details" is a property of
+the schema, not a promise about encryption.
 
-### Three decisions worth defending
+**It says when it does not know.** Every explanation comes from a checked
+corpus for that specific form. Retrieval returns nothing → it says so,
+rather than improvising. That refusal is what makes pointing this at a visa
+form safe.
 
-**1. The confidence gate is not a model.**
-
-Every other sub-agent is an `LlmAgent`. The gate
-([`app/agents/confidence_gate.py`](app/agents/confidence_gate.py)) is a pure
-Python function of `(action, confidence)`.
-
-"SnapKaki never auto-submits and stops when it is unsure" is either a
-guarantee or it is marketing. A prompt saying *always stop before a
-signature* can be argued out of stopping — by a strange form, an insistent
-user, or just sampling. A function returning `allow=False` when the action is
-in a frozen set cannot. It is unit-tested, it has no network call, and it
-behaves identically every run.
-
-**2. Routing is deterministic, not LLM-chosen.**
-
-The turn's shape picks the sub-agent. This costs flexibility and buys the
-property that matters: the gate is a line of code on the way out, not a
-sub-agent the router might forget to call.
-
-**3. There is no field for a value.**
-
-The user types their identification number into the paper form, not into
-SnapKaki. The session schema ([`app/session.py`](app/session.py)) stores
-field labels, kinds, printed options, and which field *keys* are done. There
-is nowhere to put a value, so "SnapKaki never sees your details" is
-structural rather than promised. Redaction
-([`app/redaction.py`](app/redaction.py)) is the backstop for text that slips
-through — OCR output, pre-filled labels — and the vision agent is instructed
-never to transcribe what a user has written, with its output re-scanned and
-its confidence floored if it does anyway.
-
-### Grounding
-
-The field explainer may only speak from passages retrieved out of the
-corpus ([`app/rag/corpus/chas.md`](app/rag/corpus/chas.md)). If retrieval
-returns nothing, it says it does not know rather than improvising — and
-that refusal is what makes the broad version of this product safe to point
-at a visa form.
+Each of these is argued properly, with the alternatives we rejected, in
+[docs/architecture.md](docs/architecture.md).
 
 ---
 
 ## Run it locally
 
-Stub mode needs no cloud project, no credentials, and no network. It walks
-the full CHAS flow including the gate.
+Stub mode needs no cloud project, no credentials and no network, and walks
+the full flow including the gate.
 
 ```bash
 python -m venv .venv && .venv/Scripts/activate   # Windows
@@ -97,10 +85,10 @@ Open <http://127.0.0.1:8080>. Tests:
 USE_STUB=true python -m pytest tests/ -q
 ```
 
-`tests/test_flow.py` walks the whole demo and asserts the gate fires on the
-declaration instead of walking the user into a signature.
+53 tests. `tests/test_flow.py` walks the whole demo and asserts the gate
+fires on the declaration instead of walking the user into a signature.
 
-### With real Gemini + Firestore
+### With real Gemini and Firestore
 
 ```bash
 gcloud auth application-default login
@@ -111,33 +99,28 @@ python -m app.rag.ingest          # embed the corpus into Firestore
 uvicorn app.main:app --port 8080
 ```
 
-### Configuration
-
-Everything is read from the environment — there are no values committed to
-this repo. `GOOGLE_CLOUD_PROJECT` has no default on purpose, and startup
-fails with a clear message if it is missing outside stub mode.
-
-| Variable | Default | What it does |
-|---|---|---|
-| `USE_STUB` | `false` | `true` runs the whole flow offline — no cloud project, no model calls |
-| `GOOGLE_CLOUD_PROJECT` | *(none — required)* | Your GCP project id |
-| `GOOGLE_CLOUD_LOCATION` | `asia-southeast1` | Region for Vertex AI and Firestore |
-| `GOOGLE_GENAI_USE_VERTEXAI` | `true` | Authenticate via service account rather than an API key |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Multimodal model for vision and reasoning |
-| `EMBED_MODEL` | `text-embedding-004` | Embeddings for the guidance corpus |
-| `CONFIDENCE_FLOOR` | `0.75` | Below this the gate refuses to give a next step |
-| `DEMO_FORM_ID` | `chas-application-2025-12` | Firestore partition key for the corpus |
-| `DEFAULT_LANGUAGE` | `en` | Falls back here for an unknown language code |
-
 `ingest.py` prints the one-off `gcloud firestore indexes composite create`
 command for the vector index; `find_nearest` fails until that index builds.
 
----
+### Configuration
+
+Everything is read from the environment — no values are committed here.
+`GOOGLE_CLOUD_PROJECT` has no default on purpose, and startup fails with a
+clear message if it is missing outside stub mode.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `USE_STUB` | `false` | `true` runs the whole flow offline |
+| `GOOGLE_CLOUD_PROJECT` | *(none — required)* | Your GCP project id |
+| `GOOGLE_CLOUD_LOCATION` | `asia-southeast1` | Region for Vertex AI and Firestore |
+| `GOOGLE_GENAI_USE_VERTEXAI` | `true` | Authenticate by service account, not an API key |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Multimodal model |
+| `EMBED_MODEL` | `text-embedding-004` | Embeddings for the corpus |
+| `CONFIDENCE_FLOOR` | `0.75` | Below this the gate refuses to give a next step |
+| `DEMO_FORM_ID` | `chas-application-2025-12` | Firestore partition key for the corpus |
+| `DEFAULT_LANGUAGE` | `en` | Fallback for an unknown language code |
 
 ## Deploy
-
-Two pieces: the API on Cloud Run, the web client on Firebase Hosting with
-`/session`, `/turn` and `/api/**` rewritten through to the service.
 
 ```bash
 gcloud run deploy snapkaki \
@@ -155,29 +138,16 @@ firebase deploy --only hosting --project your-project-id
 `--max-instances 3` is deliberate: the endpoint is public and every scan is
 a billed Gemini call, so the cap bounds the damage if the URL is scraped.
 
-Prerequisites, once per project:
-
-```bash
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
-  aiplatform.googleapis.com firestore.googleapis.com
-gcloud firestore databases create --location=asia-southeast1
-```
-
-The service account needs `roles/aiplatform.user` and
-`roles/datastore.user`.
-
----
-
 ## API
 
 | Endpoint | Purpose |
 |---|---|
-| `POST /session` | Start a session (`language`), returns `session_id`. |
-| `POST /turn` | One interaction. Multipart, so a camera frame and a text turn share a path. |
-| `GET /api/health` | Liveness, plus which model and whether stub mode is on. |
+| `POST /session` | Start a session (`language`), returns `session_id` |
+| `POST /turn` | One interaction. Multipart, so a camera frame and a text turn share a path |
+| `GET /api/health` | Liveness, plus which model and whether stub mode is on |
 
 Not `/healthz`: Google's frontend swallows that path on Cloud Run before it
-reaches the container, so the request never even appears in the service logs.
+reaches the container, so the request never appears in the service logs.
 
 `/turn` takes `kind`:
 
@@ -187,54 +157,28 @@ reaches the container, so the request never even appears in the service logs.
 - `next` — just give the next step
 - `family` — draft the message asking a relative for help
 
-Fields are addressed by `field_key` (the `key` in a scan's field list), never
-by label. Labels are not unique: the real form carries "Name (in BLOCK
-LETTERS, as in NRIC)" and "Mobile Number" twice, once in Section 1A for the
-applicant and again in Section 1B for a family member. Keying off the label
-ticked both at once — caught by running the live vision agent against the
-published PDF, and now covered by a regression test.
+Fields are addressed by `field_key`, never by label. Labels are not unique:
+the real form carries "Name (in BLOCK LETTERS, as in NRIC)" and "Mobile
+Number" twice, once in Section 1A for the applicant and again in Section 1B
+for a family member. Keying off the label ticked both at once — caught by
+running the live vision agent against the published PDF, and now covered by
+a regression test.
 
 ---
 
-## Deliberate scope
+## Scope
 
 The vision is broad. The demo is **one form, nailed, end to end, deployed.**
 
 SnapKaki explains what a form asks and flags when to get official help. It
-does **not** give authoritative immigration, legal, or financial advice, and
-it never completes a declaration on someone's behalf. The gate's
-refuse-when-unsure behaviour is what makes the breadth safe.
-
-### A note on the real CHAS form
-
-The corpus is built against the **Dec 2025** revision, downloaded from
-chas.sg and read field by field. Worth knowing if you are working from older
-notes: that revision differs from the Jan 2023 one in ways that matter.
-Dwelling Type no longer breaks down by room count — it is HDB Flat / Private
-Housing / Institution / Others. Rental Status reads "Not Rented (e.g. bought
-or owned)" rather than "Owned". And the declaration is **Section 2B**, not
-Clause 11. Re-check the corpus against the PDF if chas.sg publishes again.
-
-Two things did survive the revision, and both are load-bearing for the pitch.
-
-There is still **no income field** — eligibility is assessed from IRAS and
-CPF records you consent to in Section 2B, or from the Annual Value of the
-home where a household has no income. Any "type your salary here" step would
-be a scripted lie about the real form.
-
-And the form still has an **interpreter line**: Section 3 asks for the name,
-NRIC and contact number of an interpreter where the signatory does not read
-English. The government already accepts that these forms cannot be completed
-unaided by everyone who needs them, and built a human assist layer into the
-paper. SnapKaki is the always-on digital version of that line — with the
-honest difference that a human interpreter can witness a signature and
-software cannot. Which is exactly where the gate stops.
+does **not** give legal, immigration or financial advice, and it never
+completes a declaration on anyone's behalf. The gate's refuse-when-unsure
+behaviour is what makes that breadth safe to claim.
 
 ### Known gaps
 
 - One form. The corpus covers CHAS only; another form needs another corpus.
-- The front end has no live camera preview — it uses the native camera via
-  `capture="environment"`, which is the most reliable path across iOS Safari
-  and Android Chrome.
-- Non-English output is generated but has not been reviewed by native
-  speakers. Treat the dialect support as a demo of the mechanism.
+- Reading a dense page takes Gemini about ten seconds. See the latency note
+  in [docs/architecture.md](docs/architecture.md#what-we-would-change).
+- Non-English output has not been reviewed by native speakers. Treat the
+  dialect support as a demonstration of the mechanism.
