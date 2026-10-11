@@ -1,7 +1,44 @@
+# --- environment and secrets ---
+# Never commit env values. The variables themselves are documented in the
+# README; nothing in this repo should carry a project id, key or token.
+.env
+.env.*
+*.env
+secrets/
+*-key.json
+*credentials*.json
+service-account*.json
+
+# --- submission materials ---
+# Scripts, decks, videos and exported PDFs are deliverables, not source.
+# They live outside the repo. Architecture diagrams are the exception:
+# they document the system and belong here, under docs/.
+/submission/
+/deliverables/
+/scripts/
+*.pptx
+*.potx
+*.key
+*.pdf
+*.mp4
+*.mov
+*.m4v
+*.webm
+
+# --- tooling and local state ---
 .venv/
+venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
-.env
+.ruff_cache/
+.mypy_cache/
+.claude/
+.idea/
+.vscode/
 *.log
+
+# --- os cruft ---
 .DS_Store
+Thumbs.db
+desktop.ini

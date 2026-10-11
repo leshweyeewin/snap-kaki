@@ -114,12 +114,30 @@ declaration instead of walking the user into a signature.
 
 ```bash
 gcloud auth application-default login
-export GOOGLE_CLOUD_PROJECT=deskpilot-507116
+export GOOGLE_CLOUD_PROJECT=your-project-id
 export GOOGLE_CLOUD_LOCATION=asia-southeast1
 export USE_STUB=false
 python -m app.rag.ingest          # embed the corpus into Firestore
 uvicorn app.main:app --port 8080
 ```
+
+### Configuration
+
+Everything is read from the environment — there are no values committed to
+this repo. `GOOGLE_CLOUD_PROJECT` has no default on purpose, and startup
+fails with a clear message if it is missing outside stub mode.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `USE_STUB` | `false` | `true` runs the whole flow offline — no cloud project, no model calls |
+| `GOOGLE_CLOUD_PROJECT` | *(none — required)* | Your GCP project id |
+| `GOOGLE_CLOUD_LOCATION` | `asia-southeast1` | Region for Vertex AI and Firestore |
+| `GOOGLE_GENAI_USE_VERTEXAI` | `true` | Authenticate via service account rather than an API key |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Multimodal model for vision and reasoning |
+| `EMBED_MODEL` | `text-embedding-004` | Embeddings for the guidance corpus |
+| `CONFIDENCE_FLOOR` | `0.75` | Below this the gate refuses to give a next step |
+| `DEMO_FORM_ID` | `chas-application-2025-12` | Firestore partition key for the corpus |
+| `DEFAULT_LANGUAGE` | `en` | Falls back here for an unknown language code |
 
 `ingest.py` prints the one-off `gcloud firestore indexes composite create`
 command for the vector index; `find_nearest` fails until that index builds.
