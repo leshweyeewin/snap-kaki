@@ -100,12 +100,30 @@ def _get_agent() -> LlmAgent:
     return _agent
 
 
-def _build_prompt(field_label: str, question: str, context: str, language: str) -> str:
+# Asked for by the user, not inferred. Deliberately about sentence shape and
+# vocabulary rather than tone: "simpler" must not become patronising, and the
+# person asking for it is confused by a form, not slow.
+SIMPLE_MODE = """
+PLAIN LANGUAGE: this person has asked for the simplest version. Use short
+sentences, one idea each. Everyday words only - no scheme names, no
+abbreviations, no officialese. Do not shorten the answer by leaving out what
+they need; shorten the sentences. Do not talk down to them.
+"""
+
+
+def _build_prompt(
+    field_label: str,
+    question: str,
+    context: str,
+    language: str,
+    simple: bool = False,
+) -> str:
     language_name = config.SUPPORTED_LANGUAGES.get(language, config.SUPPORTED_LANGUAGES["en"])
     return (
         f"FIELD LABEL: {field_label}\n"
         f"QUESTION: {question or '(they did not ask anything specific)'}\n"
-        f"ANSWER IN: {language_name}\n\n"
+        f"ANSWER IN: {language_name}\n"
+        f"{SIMPLE_MODE if simple else ''}\n"
         f"GUIDANCE:\n{context}\n"
     )
 
@@ -116,6 +134,7 @@ async def explain(
     question: str = "",
     language: str = config.DEFAULT_LANGUAGE,
     form_id: str = config.DEMO_FORM_ID,
+    simple: bool = False,
 ) -> Explanation:
     """Explain one field. Never raises; a failure comes back as low confidence."""
     retrieval_query = f"{field_label} {question}".strip()
@@ -140,7 +159,7 @@ async def explain(
         return _stub_explanation(field_label, chunks, sources)
 
     prompt = _build_prompt(
-        field_label, question, retriever.as_context_block(chunks), language
+        field_label, question, retriever.as_context_block(chunks), language, simple
     )
     raw = await run_agent(_get_agent(), prompt)
     payload = parse_json(raw, where="field_explainer")

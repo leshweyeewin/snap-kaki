@@ -4,9 +4,10 @@
  * is camera -> backend on a real phone browser, and every build tool between
  * those two is a way for that to break at the wrong moment.
  *
- * The one piece of real engineering here is downscale(): a modern phone
- * camera produces a 4-8MB JPEG, and uploading that over mobile data is the
- * difference between a 2-second answer and a dead demo.
+ * Two pieces of real engineering here: downscale(), because a phone camera
+ * produces 4-8MB per shot and that is the difference between a usable answer
+ * and a dead demo; and prefs, which remembers the few things it is rude to
+ * ask an elderly user twice.
  */
 
 const $ = (id) => document.getElementById(id);
@@ -20,6 +21,30 @@ const state = {
   lastStop: null,    // { reason, key } for the family hand-off
 };
 
+/* --- preferences -------------------------------------------------------- */
+
+/* Three things worth remembering between visits: the language, where you got
+ * to, and whether you want plainer explanations. None of them is personal
+ * data and none is a form value, so the privacy claim is untouched.
+ *
+ * Every access is wrapped: localStorage throws in a private window, in an
+ * iframe with blocked storage, and during thumbnail capture. A preference is
+ * a convenience, so it fails silently and the app behaves as a first visit. */
+const PREFS = {
+  read(key, fallback = null) {
+    try { return localStorage.getItem(`snapkaki.${key}`) ?? fallback; }
+    catch { return fallback; }
+  },
+  write(key, value) {
+    try { localStorage.setItem(`snapkaki.${key}`, value); } catch { /* ignore */ }
+  },
+  clear(key) {
+    try { localStorage.removeItem(`snapkaki.${key}`); } catch { /* ignore */ }
+  },
+};
+
+const wantsSimple = () => $("simple-mode").checked;
+
 /* --- plumbing ----------------------------------------------------------- */
 
 function toast(message, ms = 2600) {
@@ -31,9 +56,9 @@ function toast(message, ms = 2600) {
 }
 
 /* Reading a dense form page takes Gemini around ten seconds, measured. That
- * is too long to show a bare spinner: silence past about three seconds reads
- * as broken. So the message escalates while we wait — it says nothing untrue,
- * it just keeps admitting that we are still here. */
+ * is too long for a bare spinner: silence past about three seconds reads as
+ * broken. The message escalates while we wait — nothing untrue, it just
+ * keeps admitting we are still here. */
 let busyTimers = [];
 
 function busy(on, text = "Thinking…", followUps = []) {
@@ -43,9 +68,7 @@ function busy(on, text = "Thinking…", followUps = []) {
   $("busy").hidden = !on;
   if (!on) return;
   followUps.forEach(([afterMs, message]) => {
-    busyTimers.push(setTimeout(() => {
-      $("busy-text").textContent = message;
-    }, afterMs));
+    busyTimers.push(setTimeout(() => { $("busy-text").textContent = message; }, afterMs));
   });
 }
 
@@ -57,7 +80,9 @@ async function post(path, formData) {
       const body = await response.json();
       if (body.detail) detail = body.detail;
     } catch { /* non-JSON error body; the status is all we have */ }
-    throw new Error(detail);
+    const err = new Error(detail);
+    err.status = response.status;
+    throw err;
   }
   return response.json();
 }
@@ -76,11 +101,9 @@ async function turn(fields) {
 const MAX_EDGE = 1600;   // plenty for OCR of a printed form
 const JPEG_Q = 0.82;
 
-/* Shrink a camera photo before upload.
- *
- * Falls back to the original file if anything in the canvas path fails —
- * an 1600px re-encode is an optimisation, and a browser quirk in it must
- * not cost us the scan entirely. */
+/* Falls back to the original file if anything in the canvas path fails — the
+ * re-encode is an optimisation, and a browser quirk in it must not cost us
+ * the scan entirely. */
 async function downscale(file) {
   try {
     const bitmap = await createImageBitmap(file);
@@ -97,12 +120,9 @@ async function downscale(file) {
     canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close?.();
 
-    const blob = await new Promise((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", JPEG_Q)
-    );
+    const blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", JPEG_Q));
     if (!blob) return file;
 
-    // If the re-encode somehow grew the file, keep the original.
     return blob.size < file.size
       ? new File([blob], "form.jpg", { type: "image/jpeg" })
       : file;
@@ -114,9 +134,30 @@ async function downscale(file) {
 
 /* --- rendering ----------------------------------------------------------- */
 
+const KICKERS = {
+  enter: "Next step", choose: "Choose one", check: "Check this",
+  read: "Have a look", ask: "Worth asking", done: "All done",
+};
+
+const KIND_LABELS = {
+  choice: "pick", checkbox: "tick", signature: "sign",
+  number: "number", date: "date", text: "write",
+};
+
+function kickerFor(result) {
+  if (result.stopped) return "Let's pause here";
+  if (result.kind === "explain") return "What this means";
+  return KICKERS[result.action] || "";
+}
+
 function renderCard(result) {
   const card = $("card");
   card.classList.toggle("stopped", Boolean(result.stopped));
+
+  const kicker = $("card-kicker");
+  const text = kickerFor(result);
+  kicker.textContent = text;
+  kicker.hidden = !text;
 
   $("card-step").textContent = result.message || "";
 
@@ -125,30 +166,51 @@ function renderCard(result) {
   why.hidden = !result.detail;
 
   const sources = $("card-sources");
+  sources.replaceChildren();
   if (result.sources && result.sources.length) {
-    sources.textContent = `Based on: ${result.sources.join(" · ")}`;
+    const head = document.createElement("b");
+    head.textContent = "Based on";
+    sources.append(head);
+    for (const s of result.sources) {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.textContent = s;           // model-derived text: never parsed as HTML
+      sources.append(chip);
+    }
     sources.hidden = false;
   } else {
     sources.hidden = true;
   }
 }
 
+function renderProgress() {
+  const bar = $("progress");
+  if (!state.fields.length) { bar.hidden = true; return; }
+
+  const done = state.fields.filter(
+    (f) => f.done || state.completed.includes(f.key)
+  ).length;
+  const total = state.fields.length;
+
+  $("progress-count").textContent = `${done} of ${total}`;
+  $("progress-fill").style.width = `${Math.round((done / total) * 100)}%`;
+  $("progress-label").textContent = done === total ? "Form complete" : "Your progress";
+  bar.hidden = false;
+}
+
 function renderActions(result) {
   const didIt = $("did-it");
-  const explain = $("explain");
-  const family = $("family");
 
-  // "I've done this" only makes sense for a step the user can act on, and
-  // must never appear on a gated step — that would be a one-tap path past
-  // the thing we just stopped for.
+  // "I've done this" must never appear on a gated step — that would be a
+  // one-tap path past the thing we just stopped for.
   const actionable = !result.stopped && result.field_key &&
     ["enter", "choose", "check", "read"].includes(result.action);
 
   didIt.hidden = !actionable;
   if (actionable) didIt.textContent = `I've done ${shorten(result.field_label)}`;
 
-  explain.hidden = !result.field_key;
-  family.hidden = !result.offer_family_loop;
+  $("explain").hidden = !result.field_key;
+  $("family").hidden = !result.offer_family_loop;
 }
 
 function shorten(label, max = 28) {
@@ -171,8 +233,8 @@ function renderFields() {
       locked ? "locked" : "",
     ].filter(Boolean).join(" ");
 
-    // Built with DOM methods rather than innerHTML: field.label comes from
-    // a model reading a photo, so it never goes near HTML parsing.
+    // Built with DOM methods rather than innerHTML: field.label comes from a
+    // model reading a photo, so it never goes near HTML parsing.
     const tick = document.createElement("span");
     tick.className = "tick";
     tick.setAttribute("aria-hidden", "true");
@@ -185,6 +247,15 @@ function renderFields() {
     const button = document.createElement("button");
     button.type = "button";
     button.append(tick, label);
+
+    const kindLabel = KIND_LABELS[field.kind];
+    if (kindLabel) {
+      const kind = document.createElement("span");
+      kind.className = "kind";
+      kind.textContent = kindLabel;
+      button.append(kind);
+    }
+
     button.setAttribute(
       "aria-label",
       `${field.label}${done ? ", done" : ""}. Explain this field.`
@@ -210,6 +281,7 @@ function apply(result) {
 
   renderCard(result);
   renderActions(result);
+  renderProgress();
   renderFields();
 }
 
@@ -222,6 +294,7 @@ async function ensureSession() {
   const data = await post("/session", body);
   state.sessionId = data.session_id;
   state.language = data.language;
+  PREFS.write("session", data.session_id);
   return state.sessionId;
 }
 
@@ -247,9 +320,9 @@ async function scan(file) {
 }
 
 async function explainField(key) {
-  busy(true, "Looking it up…");
+  busy(true, "Looking it up…", [[5000, "Checking the guidance…"]]);
   try {
-    apply(await turn({ kind: "ask", field_key: key }));
+    apply(await turn({ kind: "ask", field_key: key, simple: wantsSimple() }));
   } catch (err) {
     toast(`Couldn't explain that: ${err.message}`, 4200);
   } finally {
@@ -304,6 +377,32 @@ async function copyMessage() {
   }
 }
 
+/* Pick up an unfinished form from a previous visit.
+ *
+ * The person this is built for puts the phone down mid-form and comes back
+ * later, and making them re-photograph everything is the kind of small
+ * indignity that stops people using a thing. Server state already exists;
+ * this is only the client half. */
+async function resume() {
+  const saved = PREFS.read("session");
+  if (!saved) return false;
+
+  state.sessionId = saved;
+  try {
+    const result = await turn({ kind: "next" });
+    if (!result.fields || !result.fields.length) return false;
+    apply(result);
+    toast("Picked up where you left off.", 3200);
+    return true;
+  } catch (err) {
+    // 404 means the session aged out. Anything else and we would rather
+    // start clean than show a half-restored form.
+    state.sessionId = null;
+    PREFS.clear("session");
+    return false;
+  }
+}
+
 /* --- wiring -------------------------------------------------------------- */
 
 function fillLanguages(languages) {
@@ -318,9 +417,10 @@ function fillLanguages(languages) {
   select.value = state.language;
 }
 
-function init() {
+async function init() {
   // Hard-coded to match config.SUPPORTED_LANGUAGES so the picker is usable
   // before the first session call; /session returns the authoritative list.
+  state.language = PREFS.read("lang", "en");
   fillLanguages({
     en: "English",
     zh: "Mandarin Chinese",
@@ -329,29 +429,38 @@ function init() {
     hokkien: "Hokkien",
   });
 
+  $("simple-mode").checked = PREFS.read("simple") === "1";
+
   $("camera").addEventListener("change", (e) => scan(e.target.files[0]));
   $("camera-again").addEventListener("change", (e) => scan(e.target.files[0]));
   $("upload").addEventListener("change", (e) => scan(e.target.files[0]));
   $("pick-shot").addEventListener("click", () => $("upload").click());
 
-  $("did-it").addEventListener("click", () => {
-    if (state.current) markDone(state.current);
-  });
-  $("explain").addEventListener("click", () => {
-    if (state.current) explainField(state.current);
-  });
+  $("did-it").addEventListener("click", () => { if (state.current) markDone(state.current); });
+  $("explain").addEventListener("click", () => { if (state.current) explainField(state.current); });
   $("family").addEventListener("click", askFamily);
 
   $("copy-message").addEventListener("click", copyMessage);
   $("close-family").addEventListener("click", () => $("family-dialog").close());
 
+  $("simple-mode").addEventListener("change", (e) => {
+    PREFS.write("simple", e.target.checked ? "1" : "0");
+    // Re-ask the current field straight away, so the setting visibly does
+    // something rather than silently applying to the next question.
+    if (state.current) explainField(state.current);
+  });
+
   $("language").addEventListener("change", (e) => {
     state.language = e.target.value;
+    PREFS.write("lang", e.target.value);
     // A language change starts a fresh session rather than mutating one
     // mid-flow, so the event trail and the answers stay in one language.
     state.sessionId = null;
+    PREFS.clear("session");
     toast("Language set. Take a photo to start.");
   });
+
+  await resume();
 }
 
 init();

@@ -98,6 +98,7 @@ async def turn(
     field_key: Optional[str] = Form(None),
     question: Optional[str] = Form(None),
     reason: Optional[str] = Form(None),
+    simple: Optional[str] = Form(None),
     image: Optional[UploadFile] = File(None),
 ) -> JSONResponse:
     """One interaction.
@@ -143,7 +144,10 @@ async def turn(
         if not field_key:
             raise HTTPException(status_code=400, detail="ask turn needs field_key")
         result = await orchestrator.handle_question(
-            session, field_key=field_key, question=question or ""
+            session,
+            field_key=field_key,
+            question=question or "",
+            simple=None if simple is None else simple.lower() == "true",
         )
 
     elif kind == "done":

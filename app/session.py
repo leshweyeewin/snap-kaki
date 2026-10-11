@@ -35,6 +35,9 @@ class FormSession:
     form_id: str = config.DEMO_FORM_ID
     form_guess: str = ""
     language: str = config.DEFAULT_LANGUAGE
+    # Plain-language mode, asked for by the user. Kept on the session so a
+    # reload does not silently drop it; not personal data, not a form value.
+    simple: bool = False
     fields: List[DetectedField] = field(default_factory=list)
     completed: List[str] = field(default_factory=list)
     history: List[str] = field(default_factory=list)
@@ -78,6 +81,7 @@ class FormSession:
             "form_id": self.form_id,
             "form_guess": self.form_guess,
             "language": self.language,
+            "simple": self.simple,
             "fields": [asdict(f) for f in self.fields],
             "completed": list(self.completed),
             "history": list(self.history),
@@ -103,6 +107,7 @@ class FormSession:
             form_id=data.get("form_id", config.DEMO_FORM_ID),
             form_guess=data.get("form_guess", ""),
             language=data.get("language", config.DEFAULT_LANGUAGE),
+            simple=bool(data.get("simple", False)),
             fields=fields,
             completed=list(data.get("completed") or []),
             history=list(data.get("history") or []),

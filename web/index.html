@@ -3,15 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f766e">
+<meta name="theme-color" content="#0e6e66" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1416" media="(prefers-color-scheme: dark)">
 <meta name="description" content="Point your phone at a confusing form and get one clear next step.">
 <title>SnapKaki</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
 
 <header class="bar">
-  <h1>SnapKaki</h1>
+  <div class="brand">
+    <!-- Viewfinder corners around a focus dot: camera + "look here". -->
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <path d="M3 10V5.5A2.5 2.5 0 0 1 5.5 3H10M22 3h4.5A2.5 2.5 0 0 1 29 5.5V10M29 22v4.5a2.5 2.5 0 0 1-2.5 2.5H22M10 29H5.5A2.5 2.5 0 0 1 3 26.5V22"/>
+      <circle class="mark-dot" cx="16" cy="16" r="5.5"/>
+    </svg>
+    <span class="wordmark">Snap<b>Kaki</b></span>
+  </div>
   <label class="lang">
     <span class="sr-only">Language</span>
     <select id="language" aria-label="Language"></select>
@@ -22,52 +33,71 @@
 
   <!-- Start -->
   <section id="start" class="screen">
-    <p class="lede">
-      Point your camera at the form. I'll tell you what it's asking,
-      one step at a time.
-    </p>
+    <p class="lede">Point your camera at the form.<br><span>I'll tell you what it's asking, one step at a time.</span></p>
 
     <label class="shutter" for="camera">
-      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/>
-        <circle cx="12" cy="13" r="3.6"/>
-      </svg>
-      <span>Point at the form</span>
+      <span class="shutter-frame" aria-hidden="true">
+        <svg viewBox="0 0 48 48" focusable="false">
+          <path d="M6 18V10a4 4 0 0 1 4-4h8M30 6h8a4 4 0 0 1 4 4v8M42 30v8a4 4 0 0 1-4 4h-8M18 42h-8a4 4 0 0 1-4-4v-8"/>
+          <circle cx="24" cy="24" r="8.5"/>
+        </svg>
+      </span>
+      <span class="shutter-label">Point at the form</span>
+      <span class="shutter-sub">Opens your camera</span>
     </label>
     <input id="camera" type="file" accept="image/*" capture="environment" hidden>
 
-    <button type="button" class="link" id="pick-shot">
-      or choose a screenshot
-    </button>
+    <button type="button" class="link" id="pick-shot">or choose a screenshot</button>
     <input id="upload" type="file" accept="image/*" hidden>
 
-    <p class="privacy">
-      Your details stay on the form. SnapKaki reads what the form
-      <em>asks</em>, never what you write in it.
-    </p>
+    <div class="privacy">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M12 3l7 3v5.5c0 4.4-3 8.3-7 9.5-4-1.2-7-5.1-7-9.5V6l7-3Z"/>
+        <path d="M9 12.2l2.2 2.2L15.4 10"/>
+      </svg>
+      <p>Your details stay on the form. SnapKaki reads what the form <em>asks</em> — never what you write in it.</p>
+    </div>
   </section>
 
   <!-- Working -->
   <section id="work" class="screen" hidden>
+
+    <div class="progress" id="progress" hidden>
+      <div class="progress-head">
+        <span id="progress-label">Reading the form</span>
+        <span id="progress-count" class="progress-count"></span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    </div>
+
     <div id="card" class="card" aria-live="polite">
+      <p class="card-kicker" id="card-kicker" hidden></p>
       <p class="card-step" id="card-step"></p>
       <p class="card-why" id="card-why" hidden></p>
-      <p class="card-sources" id="card-sources" hidden></p>
+      <div class="sources" id="card-sources" hidden></div>
     </div>
 
     <div class="actions" id="actions">
       <button type="button" class="primary" id="did-it" hidden></button>
-      <button type="button" class="secondary" id="explain" hidden>
-        What does this mean?
-      </button>
-      <button type="button" class="secondary" id="family" hidden>
+      <button type="button" class="secondary" id="explain" hidden>What does this mean?</button>
+      <button type="button" class="secondary accent" id="family" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM2.5 20c0-3.3 2.9-5.5 6.5-5.5s6.5 2.2 6.5 5.5"/>
+          <path d="M17 8.5h4.5M19.25 6.25v4.5"/>
+        </svg>
         Ask my family
       </button>
       <label class="secondary as-button" for="camera-again">Take another photo</label>
       <input id="camera-again" type="file" accept="image/*" capture="environment" hidden>
     </div>
 
-    <h2 class="list-title">This form asks for</h2>
+    <div class="list-head">
+      <h2 class="list-title">This form asks for</h2>
+      <label class="simple-toggle">
+        <input type="checkbox" id="simple-mode">
+        <span>Explain simply</span>
+      </label>
+    </div>
     <ul id="fields" class="fields"></ul>
   </section>
 
@@ -76,9 +106,7 @@
 <!-- Family hand-off -->
 <dialog id="family-dialog">
   <h2 id="family-subject">Message for your family</h2>
-  <p class="dialog-note">
-    SnapKaki doesn't send this. Read it, then send it yourself.
-  </p>
+  <p class="dialog-note">SnapKaki doesn't send this. Read it, then send it yourself.</p>
   <textarea id="family-message" rows="6" readonly></textarea>
   <div class="dialog-actions">
     <button type="button" class="primary" id="copy-message">Copy message</button>
@@ -89,7 +117,7 @@
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <div id="busy" class="busy" hidden>
-  <div class="spinner" aria-hidden="true"></div>
+  <div class="loader" aria-hidden="true"><span></span><span></span><span></span></div>
   <p id="busy-text">Reading the form…</p>
 </div>
 

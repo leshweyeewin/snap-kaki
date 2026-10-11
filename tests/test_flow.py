@@ -320,3 +320,55 @@ def test_keys_survive_a_firestore_round_trip():
     restored = FormSession.from_dict(original.to_dict())
     assert [f.key for f in restored.fields] == [f.key for f in original.fields]
     assert restored.completed == [original.fields[1].key]
+
+
+def test_simple_mode_is_sticky_on_the_session(client):
+    """Asked for once, remembered. The client sends it with each ask, but a
+    reload that forgets to must not silently drop the preference."""
+    sid = client.post("/session").json()["session_id"]
+    _scan(client, sid)
+    key = _keys(client, sid)["Dwelling Type"]
+
+    assert store.get(sid).simple is False
+    client.post("/turn", data={
+        "session_id": sid, "kind": "ask", "field_key": key, "simple": "true"})
+    assert store.get(sid).simple is True
+
+    # An ask that omits the flag entirely leaves it alone.
+    client.post("/turn", data={"session_id": sid, "kind": "ask", "field_key": key})
+    assert store.get(sid).simple is True
+
+    client.post("/turn", data={
+        "session_id": sid, "kind": "ask", "field_key": key, "simple": "false"})
+    assert store.get(sid).simple is False
+
+
+def test_simple_mode_survives_a_firestore_round_trip():
+    from app.session import FormSession
+
+    original = FormSession(session_id="rt2", simple=True)
+    assert FormSession.from_dict(original.to_dict()).simple is True
+
+
+def test_simple_mode_reaches_the_prompt():
+    """The preference has to change the prompt, not just sit in state."""
+    from app.agents.field_explainer import SIMPLE_MODE, _build_prompt
+
+    plain = _build_prompt("Dwelling Type", "", "GUIDANCE", "en", False)
+    simple = _build_prompt("Dwelling Type", "", "GUIDANCE", "en", True)
+
+    assert SIMPLE_MODE.strip() not in plain
+    assert SIMPLE_MODE.strip() in simple
+    # Shorten the sentences, not the answer - and never patronise.
+    assert "Do not talk down" in SIMPLE_MODE
+
+
+def test_session_at_rest_still_holds_no_values(client):
+    """The new preference must not have opened a door for user data."""
+    sid = client.post("/session").json()["session_id"]
+    _scan(client, sid)
+    stored = store.get(sid).to_dict()
+    assert set(stored) == {
+        "session_id", "form_id", "form_guess", "language", "simple",
+        "fields", "completed", "history", "created_at", "updated_at",
+    }

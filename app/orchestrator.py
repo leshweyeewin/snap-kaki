@@ -168,9 +168,20 @@ async def handle_scan(
 
 
 async def handle_question(
-    session: FormSession, *, field_key: str, question: str = ""
+    session: FormSession,
+    *,
+    field_key: str,
+    question: str = "",
+    simple: Optional[bool] = None,
 ) -> TurnResult:
-    """"What does this field mean?" turn."""
+    """"What does this field mean?" turn.
+
+    `simple` is sticky: the client sends it with each ask, and we keep the
+    last value on the session so the preference survives a reload.
+    """
+    if simple is not None:
+        session.simple = simple
+
     known = session.field_by_key(field_key)
     label = known.label if known else field_key
 
@@ -179,6 +190,7 @@ async def handle_question(
         question=question,
         language=session.language,
         form_id=session.form_id,
+        simple=session.simple,
     )
 
     # An explanation is not an instruction, so the gate is consulted on a
