@@ -406,3 +406,20 @@ def test_form_identity_is_decided_once_per_session(client):
     # A second scan still guides; it does not fall into the unknown-form path.
     body = _scan(client, sid).json()
     assert body["stop_reason"] != "unknown_form"
+
+
+def test_printed_form_text_must_survive_translation():
+    """Caught by the language eval: answering in Mandarin, the model
+    translated the printed option "Not Rented" to "未出租". The user is
+    holding a sheet of paper printed in English and scanning it for the
+    words we just said - a translated option name is not on it.
+
+    Asserted on the prompt, since the behaviour is prompt-enforced and a
+    future tidy-up would otherwise drop it silently.
+    """
+    from app.agents.field_explainer import INSTRUCTION
+
+    flat = " ".join(INSTRUCTION.split())
+    assert "keep anything PRINTED ON THE FORM in the exact words" in flat
+    assert "Tidak Disewa" in flat, "the worked wrong-example earns its place"
+    assert "unfindable" in flat

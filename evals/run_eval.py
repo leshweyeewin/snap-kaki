@@ -211,6 +211,69 @@ async def eval_latency(image_path: str, runs: int) -> tuple[Result, List[float]]
     return r, times
 
 
+async def eval_languages() -> Result:
+    """Does every language we advertise actually come back in that language?
+
+    Checked by script, not by vibes: Tamil must come back in Tamil script,
+    Mandarin in CJK. Malay and romanised Hokkien are both Latin, so those
+    are checked on marker words instead.
+
+    This verifies the language, NOT the idiom. Nobody on this project reads
+    Tamil or Hokkien well enough to judge whether the phrasing is natural,
+    and the README says so.
+    """
+    import unicodedata
+
+    from app.agents import field_explainer
+
+    def scripts(text: str) -> set:
+        out = set()
+        for ch in text:
+            if not ch.isalpha():
+                continue
+            name = unicodedata.name(ch, "")
+            out.add("TAMIL" if "TAMIL" in name else
+                    "CJK" if "CJK" in name else
+                    "LATIN" if "LATIN" in name else "OTHER")
+        return out
+
+    # (code, must contain script, must contain one of these words)
+    CASES = [
+        ("en", "LATIN", ["rent", "own"]),
+        ("zh", "CJK", []),
+        ("ms", "LATIN", ["anda", "rumah", "sewa", "pinjaman"]),
+        ("ta", "TAMIL", []),
+        ("hokkien", "LATIN", ["li", "chit", "si", "lu"]),
+    ]
+
+    r = Result("Languages — answered in the language asked for")
+    for code, script, words in CASES:
+        r.total += 1
+        e = await field_explainer.explain(
+            "Rental Status of Residence",
+            question="I am still paying my housing loan. Which do I pick?",
+            language=code,
+        )
+        text = e.explanation
+        low = text.lower()
+        ok = script in scripts(text)
+        if ok and words:
+            ok = any(w in low for w in words)
+        # Every language should keep the printed option text verbatim: the
+        # user has to find those exact words on the paper.
+        keeps_printed = "not rented" in low
+        if ok and keeps_printed:
+            r.passed += 1
+        else:
+            why = []
+            if not ok:
+                why.append(f"expected {script}, got {sorted(scripts(text))}")
+            if not keeps_printed:
+                why.append("dropped the printed option text")
+            r.notes.append(f"{code}: {', '.join(why)} — {text[:70]}")
+    return r
+
+
 async def eval_cache(image_path: str) -> tuple[Result, Optional[float], Optional[float]]:
     """A repeat photograph of the same page should not re-pay for the read."""
     from app import config, vision_cache
@@ -328,6 +391,8 @@ async def main_async(args, pre: List[Result]) -> int:
     if not args.offline_only:
         results.append(await eval_grounding())
         results.append(await eval_refusal())
+        if args.languages:
+            results.append(await eval_languages())
         cache_result, miss, hit = await eval_cache(args.image)
         results.append(cache_result)
         cache = (miss, hit)
@@ -355,6 +420,8 @@ def main() -> int:
     p.add_argument("--skip-latency", action="store_true")
     p.add_argument("--offline-only", action="store_true",
                    help="gate and form match only; no model calls, no cost")
+    p.add_argument("--languages", action="store_true",
+                   help="also check every advertised language answers in it")
     p.add_argument("--a11y", action="store_true",
                    help="also audit WCAG AA against the deployed page")
     p.add_argument("--url", default="https://snapkaki.web.app",

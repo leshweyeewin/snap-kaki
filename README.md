@@ -132,7 +132,7 @@ for a person.
 
 ---
 
-## The four Google services
+## The Google services
 
 | Service | What it does here |
 |---|---|
@@ -140,6 +140,8 @@ for a person.
 | **Firestore** | Vector search (`find_nearest`) over the grounding corpus, plus session state |
 | **Cloud Run** | Hosts the FastAPI service |
 | **Firebase Hosting** | Serves the mobile web client, rewriting the API through to Cloud Run |
+| **Cloud Text-to-Speech** | Reads any answer aloud, in the user's language — for the readers this is built for |
+| **Google Search grounding** | Only on an unrecognised form, and only to locate the responsible authority. It never interprets a form |
 
 Agents are orchestrated with **Google ADK** — one `LlmAgent` per sub-agent,
 run through an ADK `Runner`.
