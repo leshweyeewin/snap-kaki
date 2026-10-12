@@ -1,6 +1,6 @@
 # SnapKaki — evaluation
 
-Run 2026-10-12 02:25 · `python -m evals.run_eval`
+Run 2026-10-12 15:03 · `python -m evals.run_eval`
 
 | Measure | Result | |
 | --- | --- | --- |
@@ -15,13 +15,13 @@ Run 2026-10-12 02:25 · `python -m evals.run_eval`
 ## Latency
 
 - image: 202 KB, downscaled as the client would send it
-- p50 **6.9s** · p95 **7.3s** · min 6.6s · max 7.3s over 5 runs
+- p50 **6.2s** · p95 **6.5s** · min 6.0s · max 6.5s over 5 runs
 
 Reading a dense page is the whole cost; everything else is well under a second. See the latency note in docs/architecture.md.
 
 ## Cache
 
-- repeat scan of the same page: **10.2s → 0.06s** (160x), and no second model call
+- repeat scan of the same page: **9.7s → 0.05s** (179x), and no second model call
 
 No failures.
 

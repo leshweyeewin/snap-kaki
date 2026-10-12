@@ -382,6 +382,62 @@ body {
   color: var(--stop-ink);
 }
 
+/* --- ask a question --- */
+
+/* The product is called point-and-ask and until now you could only point.
+   Voice is first-class here, not a nicety: the person this is built for
+   finds a phone keyboard hard, and dictating "what does this mean?" is the
+   whole interaction. */
+.ask {
+  display: flex; align-items: center; gap: 8px;
+  margin: 16px 0 0;
+}
+.ask[hidden] { display: none; }
+
+.ask input {
+  flex: 1; min-width: 0;
+  min-height: var(--tap);
+  padding: 12px 16px;
+  font: inherit; font-size: 1.04rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+}
+.ask input::placeholder { color: var(--ink-soft); }
+
+.mic, .ask-go {
+  display: grid; place-items: center;
+  flex: none;
+  width: var(--tap); height: var(--tap);
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mic[hidden] { display: none; }
+.mic svg, .ask-go svg {
+  width: 23px; height: 23px;
+  fill: none; stroke: currentColor; stroke-width: 1.9;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.ask-go {
+  background: linear-gradient(170deg, var(--brand), var(--brand-strong));
+  border-color: transparent;
+  color: var(--brand-ink);
+}
+.mic.listening {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand-strong);
+  animation: listening 1.3s ease-in-out infinite;
+}
+@keyframes listening {
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--brand) 18%, transparent); }
+}
+
 /* --- actions --- */
 
 .actions { display: flex; flex-direction: column; gap: 11px; margin: 20px 0 32px; }

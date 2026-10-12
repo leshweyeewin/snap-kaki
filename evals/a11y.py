@@ -116,9 +116,39 @@ PROBE = r"""
     });
 
   // --- tap targets + accessible names ----------------------------------
-  document.querySelectorAll('button, a[href], select, input, [role="button"], label[for]')
+  // A screen-reader-only label is 1x1 by design. It is not a tap target,
+  // and flagging it as one buries the real findings.
+  const srOnly = (el) => {
+    const r = el.getBoundingClientRect();
+    return r.width <= 2 || r.height <= 2;
+  };
+  // The accessible name can come from a separate <label for>, or from
+  // aria-labelledby - not only from the element's own text.
+  const nameOf = (el) => {
+    const byAria = el.getAttribute("aria-label");
+    if (byAria && byAria.trim()) return byAria.trim();
+    const ref = el.getAttribute("aria-labelledby");
+    if (ref) {
+      const t = ref.split(/\s+/).map((id) => {
+        const n = document.getElementById(id);
+        return n ? n.textContent : "";
+      }).join(" ").trim();
+      if (t) return t;
+    }
+    if (el.id) {
+      const lab = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+      if (lab && lab.textContent.trim()) return lab.textContent.trim();
+    }
+    const wrapLabel = el.closest("label");
+    if (wrapLabel && wrapLabel.textContent.trim()) return wrapLabel.textContent.trim();
+    return (el.innerText || el.getAttribute("title") ||
+            el.getAttribute("placeholder") || el.value || "").trim();
+  };
+
+  document.querySelectorAll('button, a[href], select, input, textarea, [role="button"], label[for]')
     .forEach((el) => {
       if (!visible(el)) return;
+      if (srOnly(el)) return;
       // The hit area is the control OR a wrapping label, whichever is
       // bigger: a 20px checkbox inside a 44px <label> is a 44px target,
       // and reporting the input alone is a false alarm.
@@ -128,9 +158,7 @@ PROBE = r"""
         const w = wrap.getBoundingClientRect();
         if (Math.min(w.width, w.height) > Math.min(r.width, r.height)) r = w;
       }
-      const name = (el.getAttribute("aria-label") || el.innerText ||
-                    (wrap ? wrap.innerText : "") ||
-                    el.getAttribute("title") || el.value || "").trim();
+      const name = nameOf(el);
       const label = (name || el.tagName).slice(0, 40);
       if (Math.min(r.width, r.height) < 44) {
         out.targets.push({ label, w: +r.width.toFixed(0), h: +r.height.toFixed(0) });

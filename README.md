@@ -62,6 +62,15 @@ SnapKaki reads what a form **asks**, explains it in the user's language, one
 step at a time — and refuses to walk anyone through a signature, a consent
 clause or a submission.
 
+**On a phone:** open <https://snapkaki.web.app>. Nothing to install. Tap
+*Point at the form* and your camera opens. To keep it, use your browser's
+**Add to Home Screen** — it installs as an app, opens full-screen and keeps
+its own icon.
+
+Ask about any field in your own words, by typing or by voice. Dictation runs
+in the browser and never leaves the phone, which is the same promise the rest
+of the product makes. Any answer can be read aloud, in your language.
+
 The demo walks one form end to end: the **CHAS** application
 (Singapore's Community Health Assist Scheme — a health subsidy card),
 Dec 2025 revision.

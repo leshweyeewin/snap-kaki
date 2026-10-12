@@ -10,6 +10,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SnapKaki">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -88,6 +94,23 @@
       <a class="card-link" id="card-link" hidden target="_blank" rel="noopener noreferrer"></a>
       <div class="sources" id="card-sources" hidden></div>
     </div>
+
+    <form class="ask" id="ask-form" hidden>
+      <label class="sr-only" for="ask-input">Ask about this field</label>
+      <input id="ask-input" type="text" autocomplete="off"
+             placeholder="Ask about this field…" enterkeyhint="send">
+      <button type="button" class="mic" id="mic" hidden aria-label="Ask by voice">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <rect x="9" y="3" width="6" height="11" rx="3"/>
+          <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/>
+        </svg>
+      </button>
+      <button type="submit" class="ask-go" id="ask-go" aria-label="Send question">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M4 12h15M13 6l6 6-6 6"/>
+        </svg>
+      </button>
+    </form>
 
     <div class="actions" id="actions">
       <button type="button" class="primary" id="did-it" hidden></button>

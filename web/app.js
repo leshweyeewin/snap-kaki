@@ -220,6 +220,80 @@ function browserSpeak(text) {
   }
 }
 
+/* --- asking a question ---------------------------------------------------- */
+
+/* Dictation runs in the browser, not in the cloud, and that is a decision
+ * rather than laziness. The alternative is recording audio and uploading it
+ * to Cloud Speech-to-Text, which would be a little more accurate and would
+ * mean a recording of the user's voice, taken while they sit over a form
+ * covered in their own details, leaving the device. Web Speech keeps it on
+ * the phone, which is the same promise the rest of the product makes.
+ *
+ * Support is good but not universal, so the button only appears where the
+ * API exists and the text box always works. */
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+const SPEECH_LOCALES = { en: "en-SG", zh: "zh-CN", ms: "ms-MY", ta: "ta-IN",
+                         hokkien: "zh-CN" };
+
+let recogniser = null;
+
+function listen() {
+  if (!Recognition) return;
+  const mic = $("mic");
+
+  if (recogniser) { recogniser.stop(); return; }
+
+  const r = new Recognition();
+  r.lang = SPEECH_LOCALES[state.language] || "en-SG";
+  r.interimResults = true;
+  r.continuous = false;
+
+  r.onresult = (event) => {
+    const said = Array.from(event.results).map((x) => x[0].transcript).join("");
+    $("ask-input").value = said;
+  };
+  r.onend = () => {
+    recogniser = null;
+    mic.classList.remove("listening");
+    // Dictating a question and then having to press a second button is the
+    // kind of step that loses the person this is for.
+    if ($("ask-input").value.trim()) askQuestion();
+  };
+  r.onerror = () => {
+    recogniser = null;
+    mic.classList.remove("listening");
+    toast("Didn't catch that. You can type it instead.", 3200);
+  };
+
+  recogniser = r;
+  mic.classList.add("listening");
+  try { r.start(); } catch { recogniser = null; mic.classList.remove("listening"); }
+}
+
+async function askQuestion() {
+  const input = $("ask-input");
+  const question = input.value.trim();
+  if (!question || !state.current) return;
+
+  input.blur();
+  busy(true, "Looking it up…", [[5000, "Checking the guidance…"]]);
+  try {
+    const result = await turn({
+      kind: "ask",
+      field_key: state.current,
+      question,
+      simple: wantsSimple(),
+    });
+    input.value = "";
+    apply(result);
+  } catch (err) {
+    toast(`Couldn't answer that: ${err.message}`, 4200);
+  } finally {
+    busy(false);
+  }
+}
+
 /* --- rendering ----------------------------------------------------------- */
 
 const KICKERS = {
@@ -318,6 +392,18 @@ function renderActions(result) {
 
   $("explain").hidden = !result.field_key;
   $("family").hidden = !result.offer_family_loop;
+
+  // The ask row needs a field to ask ABOUT - it is scoped to the current
+  // one, which is what keeps retrieval tight.
+  const askable = Boolean(result.field_key);
+  $("ask-form").hidden = !askable;
+  if (askable) {
+    // shorten() already appends an ellipsis when it truncates, so only add
+    // one when it did not.
+    const subject = shorten(result.field_label, 24);
+    $("ask-input").placeholder =
+      `Ask about ${subject}${subject.endsWith("…") ? "" : "…"}`;
+  }
 }
 
 function shorten(label, max = 28) {
@@ -548,6 +634,9 @@ async function init() {
   $("explain").addEventListener("click", () => { if (state.current) explainField(state.current); });
   $("family").addEventListener("click", askFamily);
   $("speak").addEventListener("click", speak);
+  $("mic").hidden = !Recognition;
+  $("mic").addEventListener("click", listen);
+  $("ask-form").addEventListener("submit", (e) => { e.preventDefault(); askQuestion(); });
 
   $("copy-message").addEventListener("click", copyMessage);
   $("close-family").addEventListener("click", () => $("family-dialog").close());
