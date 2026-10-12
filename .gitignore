@@ -44,6 +44,12 @@ __pycache__/
 .vscode/
 *.log
 
+# Agent and editor config, not source. This was kept out of the repo by a
+# local .git/info/exclude, which is not committed - so the rule only existed
+# on one machine and a fresh clone would have re-added the file on the next
+# `git add -A`. Rules that matter belong where they travel.
+.claude/
+
 # --- os cruft ---
 .DS_Store
 Thumbs.db
