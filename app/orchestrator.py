@@ -44,6 +44,11 @@ class TurnResult:
     detail: Optional[str] = None   # secondary line, e.g. how to decide
     field_key: Optional[str] = None    # stable handle the client sends back
     field_label: Optional[str] = None  # display text only
+    # What is actually printed on the form beside this field. Vision reads
+    # both and we were discarding them, which is the one thing a confused
+    # person most wants: what am I choosing between, and how do I mark it.
+    field_options: List[str] = field(default_factory=list)
+    field_notes: Optional[str] = None
     action: Optional[str] = None
     stopped: bool = False          # did the gate stop us
     stop_reason: Optional[str] = None
@@ -64,6 +69,8 @@ class TurnResult:
             "detail": self.detail,
             "field_key": self.field_key,
             "field_label": self.field_label,
+            "field_options": self.field_options,
+            "field_notes": self.field_notes,
             "action": self.action,
             "stopped": self.stopped,
             "stop_reason": self.stop_reason,
@@ -100,7 +107,18 @@ def _base(session: FormSession, kind: str) -> TurnResult:
     )
 
 
-async def _guide(session: FormSession, kind: str = "next") -> TurnResult:
+def _attach_field(result: TurnResult, session: FormSession, key: Optional[str]) -> None:
+    """Carry the printed options and layout note for the field in play."""
+    found = session.field_by_key(key) if key else None
+    if found is None:
+        return
+    result.field_options = list(found.options)
+    result.field_notes = found.notes or None
+
+
+async def _guide(
+    session: FormSession, kind: str = "next", focus_label: str = ""
+) -> TurnResult:
     """Ask guidance for the next step, then put it through the gate.
 
     Every path that ends in an instruction goes through here, so the gate
@@ -112,6 +130,7 @@ async def _guide(session: FormSession, kind: str = "next") -> TurnResult:
         last_event=session.history[-1] if session.history else "",
         form_guess=session.form_guess,
         form_id=session.form_id,
+        focus_label=focus_label,
     )
 
     decision = confidence_gate.evaluate(
@@ -123,6 +142,7 @@ async def _guide(session: FormSession, kind: str = "next") -> TurnResult:
     result = _base(session, kind)
     result.field_key = step.field_key
     result.field_label = step.field_label
+    _attach_field(result, session, step.field_key)
     result.action = step.action
     result.confidence = step.confidence
     result.sources = step.sources
@@ -192,7 +212,7 @@ async def handle_scan(
         session.form_known = True
         store.save(session)
 
-    return await _guide(session, kind="scan")
+    return await _guide(session, kind="scan", focus_label=reading.focus_label or "")
 
 
 async def _handle_unknown_form(session: FormSession, reading) -> TurnResult:
@@ -270,6 +290,7 @@ async def handle_question(
     result = _base(session, "explain")
     result.field_key = known.key if known else None
     result.field_label = label
+    _attach_field(result, session, known.key if known else None)
     result.confidence = explanation.confidence
     result.sources = explanation.sources
     result.offer_family_loop = decision.offer_family_loop

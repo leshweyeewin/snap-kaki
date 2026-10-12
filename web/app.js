@@ -328,6 +328,27 @@ function renderCard(result) {
   why.textContent = result.detail || "";
   why.hidden = !result.detail;
 
+  // The printed choices and the layout note for this field. Both come from
+  // vision and were being discarded; they are exactly what someone staring
+  // at "Rental Status of Residence" wants to see.
+  const onform = $("onform");
+  const note = $("onform-note");
+  const opts = $("onform-options");
+  const hasNote = Boolean(result.field_notes);
+  const list = result.field_options || [];
+
+  note.textContent = result.field_notes || "";
+  note.hidden = !hasNote;
+
+  opts.replaceChildren();
+  for (const o of list) {
+    const chip = document.createElement("span");
+    chip.textContent = o;        // model-derived: never parsed as HTML
+    opts.append(chip);
+  }
+  opts.hidden = list.length === 0;
+  onform.hidden = !(hasNote || list.length);
+
   // Official source for a form we hold no guidance for. The href is only
   // ever a government domain - the backend drops anything else before it
   // reaches here (see agents/signpost.py) - but rel/target are set in the

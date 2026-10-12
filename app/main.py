@@ -131,7 +131,6 @@ async def create_session(language: str = Form(config.DEFAULT_LANGUAGE)) -> JSONR
             "session_id": session.session_id,
             "language": session.language,
             "languages": config.SUPPORTED_LANGUAGES,
-            "speech_languages": sorted(speech.VOICES),
             "can_speak": speech.available_for(session.language),
             "form_id": session.form_id,
         }

@@ -103,14 +103,6 @@ class VisionResult:
     def is_empty(self) -> bool:
         return not self.fields
 
-    def key_for_label(self, label: str) -> Optional[str]:
-        """First field with this label. Used only to resolve the model's
-        `focus_label`, which names a field rather than keying one."""
-        for f in self.fields:
-            if f.label == label:
-                return f.key
-        return None
-
 
 def assign_keys(fields: List[DetectedField]) -> List[DetectedField]:
     """Key fields by position, so duplicate labels stay distinct."""

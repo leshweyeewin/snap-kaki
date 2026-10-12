@@ -51,10 +51,13 @@ Rules:
    number across" - never the number. Values are always entered by the person.
 3. Work in the printed order of the form unless a field is clearly blocked by
    an earlier one.
-4. If the next thing is a signature, a consent, or a submission, say so
+4. If THE CAMERA WAS POINTED AT a particular field, start there. They
+   aimed at the thing confusing them, and walking them back to the top of
+   the form ignores what they just told you.
+5. If the next thing is a signature, a consent, or a submission, say so
    honestly and name it in "action". Do not soften it and do not encourage
    it. Something downstream will stop the flow there, and it should.
-5. If you are unsure what comes next - the form is unfamiliar, fields are
+6. If you are unsure what comes next - the form is unfamiliar, fields are
    missing, the state does not make sense - set a low confidence and make
    the action "ask". Guessing a next step on a legal form is worse than
    admitting you lost the thread.
@@ -131,6 +134,7 @@ async def next_step(
     last_event: str = "",
     form_guess: str = "",
     form_id: str = config.DEMO_FORM_ID,
+    focus_label: str = "",
 ) -> NextStep:
     """Pick the next step. Never raises; failure comes back as low confidence."""
     remaining = [f for f in fields if f.key not in completed and not f.has_value]
@@ -144,8 +148,12 @@ async def next_step(
     prompt = (
         f"FORM: {form_guess or 'unknown form'}\n\n"
         f"FIELDS (x = already filled):\n{_render_fields(fields, completed)}\n\n"
-        f"WHAT JUST HAPPENED: {last_event or '(start of the session)'}\n\n"
-        f"GUIDANCE:\n{retriever.as_context_block(chunks)}\n"
+        f"WHAT JUST HAPPENED: {last_event or '(start of the session)'}\n"
+        # Vision already reports which field the camera was aimed at. We
+        # were parsing it and throwing it away, which meant pointing at the
+        # field confusing you had no effect on what you were told next.
+        + (f"THE CAMERA WAS POINTED AT: {focus_label}\n" if focus_label else "")
+        + f"\nGUIDANCE:\n{retriever.as_context_block(chunks)}\n"
     )
     raw = await run_agent(_get_agent(), prompt)
     payload = parse_json(raw, where="guidance")

@@ -56,7 +56,6 @@ if not USE_STUB and not PROJECT_ID:
 # Firestore partition key, so stale chunks stop being retrieved rather than
 # silently mixing with new ones.
 DEMO_FORM_ID = os.environ.get("DEMO_FORM_ID", "chas-application-2025-12")
-DEMO_FORM_NAME = "the CHAS application form"
 
 # Vocabulary that identifies the form we actually hold guidance for.
 #

@@ -331,6 +331,40 @@ body {
 }
 .card-why[hidden] { display: none; }
 
+/* What is actually printed beside this field. Vision reads the choices and
+   the layout note for every field; showing them answers the question a
+   confused person asks first - what am I picking between, and how do I
+   mark it - without another round trip. */
+.onform {
+  margin: 15px 0 0; padding: 14px 15px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+}
+.onform[hidden] { display: none; }
+.onform > b {
+  display: block; margin-bottom: 8px;
+  font-size: .76rem; font-weight: 800; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--ink-soft);
+}
+.onform-note { margin: 0 0 9px; font-size: .98rem; color: var(--ink-soft); }
+.onform-note[hidden] { display: none; }
+.onform-options { display: flex; flex-wrap: wrap; gap: 7px; }
+.onform-options[hidden] { display: none; }
+.onform-options span {
+  padding: 7px 13px;
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  font-size: .95rem; font-weight: 600; color: var(--ink);
+}
+
+.card.stopped .onform {
+  background: color-mix(in srgb, var(--stop-bg) 55%, var(--surface));
+  border-color: var(--stop-line);
+}
+.card.stopped .onform-options span { border-color: var(--stop-line); }
+
 .card-link {
   display: inline-flex; align-items: center; gap: 7px;
   margin: 14px 0 0;
