@@ -287,9 +287,24 @@ experiment behind each claim in this document and writes
 exhaustively; grounding, refusal and latency call the real model.
 
 **Why.** Every claim here is phrased as something falsifiable, which is
-worth little if nobody tries to falsify it. It has already earned its keep:
-it caught a grounding assertion that was checking the wrong field, and it
-produced the latency numbers that overturned the decision below.
+worth little if nobody tries to falsify it. It has already earned its keep
+four times over: it caught a grounding assertion that was checking the wrong
+field, it produced the latency numbers that overturned the decision below,
+it found a reply that would not parse, and it caught the same wrong-field
+mistake a second time in the languages suite I had just written — a suite
+that failed at random, which is worse than no suite at all.
+
+One suite exists because of what the others could not see. `GATE` is
+exhaustive and offline: it hands the gate an action and checks the decision,
+which proves the gate is correct but says nothing about whether it is ever
+reached. Whether it is reached depends on the photograph, the field kinds
+vision assigns, and the action the guidance model names — none of which the
+gate's own test can touch. `GATE LIVE` photographs Section 3 of the real
+form at the size the client uploads, scans it, marks everything but the
+signature done, and asks for one step. The only acceptable outcome is a
+stop. It fires 3/3, and the failure it is really watching for is the one
+where no signature field is recognised at all, because nothing downstream
+can stop a page that was never read as dangerous.
 
 ## What we would change, and one we got wrong
 
@@ -313,13 +328,60 @@ p95 9.4s**. The lesson is not about a flag; it is that the first
 explanation for a bad measurement was plausible, cheap to believe, and
 wrong, and only a bigger sample showed it.
 
-**One form.** The corpus is the unit of scale and it is hand-written. The
-right trade for a demo that has to be right, the wrong one for a product
-that has to be broad.
+**We were also wrong about Cloud Trace.** `app/tracing.py` shipped disabled,
+with a careful docstring explaining that spans were emitted correctly but
+never arrived, and concluding that the legacy write path and the legacy read
+API no longer met. It read like diligence. It was a bug three lines away:
+`start()` declared `global _started` but not `global _provider`, so its
+`_provider = provider` bound a local, the module global stayed `None`, and
+`flush()` — which tested exactly that — returned immediately on every call.
+Nothing was ever flushed. On Cloud Run, where CPU is throttled between
+requests and the background export thread never runs, that meant nothing was
+ever sent.
 
-**Languages are unreviewed.** Non-English output is generated and
-structurally correct, but has not been checked by native speakers. Treat
-the dialect support as a demonstration of the mechanism.
+With the binding fixed, a real `POST /turn` through Firebase Hosting to
+Cloud Run lands five spans in Cloud Trace with per-stage timings — 3611ms
+for the request, of which 1854ms was the guidance agent and 1772ms the
+Gemini call itself. Tracing is now on by default, and each request is
+wrapped in one span so a turn arrives as a single trace instead of one per
+agent invocation. The fix was not to add the missing keyword — it was to
+stop keeping a second copy of state OpenTelemetry already holds, so
+`flush()` now asks `get_tracer_provider()` for the provider that is
+actually installed. One piece of state cannot disagree with itself.
+
+There is a second reason the original diagnosis was believable: the v1
+`traces.list` API genuinely does return nothing, even for windows where
+`traces.get` on a known trace id returns all five spans. The observation
+was correct and the inference from it was not. Verification now goes
+through an id the service logs per request, which is also what makes a log
+line joinable to a trace.
+
+Two things are worth taking from this. The first is that the failure was
+invisible by construction: no exception, no log line, and a plausible
+external explanation ready to hand. Writing that explanation into a
+docstring made it durable. The second is that "we turned it off and
+documented why" is not the same as "we checked" — and only the second one
+is worth anything. `tests/test_tracing.py` now asserts that spans actually
+leave, and it fails against the old code.
+
+**Asking for JSON is not the same as getting it.** Every sub-agent returned
+JSON because the prompt asked it to, which worked until a live eval run hit
+a reply that would not parse — roughly one in forty. The cost of that is not
+a retry, it is the user reading "something went wrong reading that field"
+and having no idea whether the form or the app is the problem.
+
+The four agents that return structured data now declare an `output_schema`,
+so the shape is enforced while the tokens are being chosen rather than
+requested politely in advance. Measured interleaved over eight pairs on the
+same page, it costs nothing: **p50 8.0s with the schema against 8.5s
+without**, and the field count was identical — 12 — on all sixteen runs. The
+one agent left on prompt-only JSON is the signpost, because Gemini cannot
+combine controlled generation with the Search tool it needs.
+
+Worth being precise about the evidence: eight runs cannot demonstrate the
+absence of a one-in-forty failure. The argument for the schema is
+structural — a constrained decoder cannot emit unparseable JSON — and the
+measurement only establishes that it is free.
 
 **One form.** The corpus is the unit of scale and it is hand-written. That
 is the correct trade for a demo that has to be right, and the wrong one for

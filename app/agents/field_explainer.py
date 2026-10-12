@@ -60,19 +60,37 @@ Rules, in order of importance:
 6. Short sentences. No jargon. Assume no familiarity with government forms.
    Assume intelligence - the person is confused by the form, not slow.
 
-Return ONLY a JSON object, no prose and no code fence:
+What each field of your answer means:
 
-{
-  "explanation": "your explanation, 2-5 short sentences",
-  "how_to_decide": "the concrete thing they can look at or check to find
-                    their own answer, or null if GUIDANCE does not say",
-  "grounded": true if your answer came from GUIDANCE, false if you could not
-              find it there,
-  "ask_someone": true if this field genuinely needs the agency or a family
-                 member rather than an explanation,
-  "confidence": 0.0 to 1.0
-}
+  explanation    your explanation, 2-5 short sentences
+  how_to_decide  the concrete thing they can look at or check to find their
+                 own answer; omit it if GUIDANCE does not say
+  grounded       true if your answer came from GUIDANCE, false if you could
+                 not find it there
+  ask_someone    true if this field genuinely needs the agency or a family
+                 member rather than an explanation
+  confidence     0.0 to 1.0
 """
+
+# The shape is enforced by the decoder, not asked for in the prompt. Asking
+# nicely for JSON works until it doesn't: a live eval run caught one reply in
+# roughly forty that would not parse, and a parse failure here shows the user
+# "something went wrong reading that field". The INSTRUCTION above still says
+# what each field MEANS, because a schema cannot say when `grounded` is true.
+OUTPUT_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "explanation": {"type": "STRING"},
+        "how_to_decide": {"type": "STRING", "nullable": True},
+        "grounded": {"type": "BOOLEAN"},
+        "ask_someone": {"type": "BOOLEAN"},
+        "confidence": {"type": "NUMBER"},
+    },
+    "required": ["explanation", "grounded", "ask_someone", "confidence"],
+    "propertyOrdering": [
+        "explanation", "how_to_decide", "grounded", "ask_someone", "confidence",
+    ],
+}
 
 
 @dataclass
@@ -98,6 +116,7 @@ def build_agent() -> LlmAgent:
             "guidance, in the user's language."
         ),
         instruction=INSTRUCTION,
+        output_schema=OUTPUT_SCHEMA,
     )
 
 

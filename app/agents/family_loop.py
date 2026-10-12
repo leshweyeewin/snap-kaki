@@ -56,13 +56,26 @@ Rules:
 5. Short. Four sentences at most. This is a WhatsApp message, not a letter.
 6. No pleasantries padding the front. Get to it.
 
-Return ONLY a JSON object, no prose and no code fence:
+What each field of your answer means:
 
-{
-  "message": "the message, ready to send",
-  "subject": "a 5-8 word summary for a notification line"
-}
+  message  the message, ready to send
+  subject  a 5-8 word summary for a notification line
 """
+
+# Enforced by the decoder rather than requested in the prompt - see the note
+# in app/agents/field_explainer.py. This agent already falls back to a
+# template on anything unusable, so a parse failure was never visible here;
+# it just quietly cost the person the better-written message at the moment
+# they were most stuck.
+OUTPUT_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "message": {"type": "STRING"},
+        "subject": {"type": "STRING"},
+    },
+    "required": ["message", "subject"],
+    "propertyOrdering": ["message", "subject"],
+}
 
 
 @dataclass
@@ -83,6 +96,7 @@ def build_agent() -> LlmAgent:
             "a specific point on a form. Text only, never an image."
         ),
         instruction=INSTRUCTION,
+        output_schema=OUTPUT_SCHEMA,
     )
 
 

@@ -80,8 +80,14 @@ app = FastAPI(title="SnapKaki", version="0.1.0", lifespan=lifespan)
 
 @app.middleware("http")
 async def flush_spans(request, call_next):
-    """Export this request's spans before Cloud Run throttles the CPU."""
-    response = await call_next(request)
+    """Group this request's spans under one trace, then export them before
+    Cloud Run throttles the CPU back to near zero."""
+    with tracing.request_span(f"{request.method} {request.url.path}") as trace_id:
+        response = await call_next(request)
+    if trace_id:
+        # Printed so a log line can be joined to its trace. Cloud Run's own
+        # request log carries a different id - this is ours.
+        logger.info("trace=%s %s %s", trace_id, request.method, request.url.path)
     tracing.flush()
     return response
 

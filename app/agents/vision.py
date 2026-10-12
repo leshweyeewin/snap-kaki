@@ -26,6 +26,41 @@ logger = logging.getLogger(__name__)
 
 FIELD_KINDS = {"text", "number", "date", "choice", "checkbox", "signature", "unknown"}
 
+# Enforced by the decoder rather than requested in the prompt - see the note
+# in app/agents/field_explainer.py. This is the agent where it matters most:
+# the reply is the longest of the five, a whole page of fields, so it has the
+# most room to go wrong, and an unparseable one means the scan failed.
+OUTPUT_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "form_guess": {"type": "STRING"},
+        "language": {"type": "STRING"},
+        "fields": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "label": {"type": "STRING"},
+                    "kind": {"type": "STRING", "enum": sorted(FIELD_KINDS)},
+                    "options": {"type": "ARRAY", "items": {"type": "STRING"}},
+                    "has_value": {"type": "BOOLEAN"},
+                    "notes": {"type": "STRING"},
+                },
+                "required": ["label", "kind", "has_value"],
+                "propertyOrdering": [
+                    "label", "kind", "options", "has_value", "notes",
+                ],
+            },
+        },
+        "focus_label": {"type": "STRING", "nullable": True},
+        "confidence": {"type": "NUMBER"},
+    },
+    "required": ["form_guess", "fields", "confidence"],
+    "propertyOrdering": [
+        "form_guess", "language", "fields", "focus_label", "confidence",
+    ],
+}
+
 INSTRUCTION = """\
 You are the vision component of SnapKaki, a helper for people filling in
 official forms. You are shown a photo or screenshot of a form.
@@ -38,25 +73,21 @@ postal codes, dates of birth, or any handwritten or filled-in content. If a
 field already has something in it, say so with "has_value": true and move
 on. Reporting the value is a privacy breach, not helpfulness.
 
-Return ONLY a JSON object, no prose and no code fence:
+What each field of your answer means:
 
-{
-  "form_guess": "best guess at which form this is, in plain words",
-  "language": "the language the form is printed in",
-  "fields": [
-    {
-      "label": "the printed question or field name, copied as printed",
-      "kind": "text | number | date | choice | checkbox | signature | unknown",
-      "options": ["the printed choices, if this is a choice field"],
-      "has_value": true or false,
-      "notes": "anything about how the field is laid out that a confused
-                person would need - e.g. 'circle one of four', 'tick box'.
-                Never put user data here."
-    }
-  ],
-  "focus_label": "the label of the field the camera is pointed at, or null",
-  "confidence": 0.0 to 1.0 - how sure you are you read this form correctly
-}
+  form_guess   best guess at which form this is, in plain words
+  language     the language the form is printed in
+  fields       one entry per field on the page, in printed order:
+     label     the printed question or field name, copied as printed
+     kind      text, number, date, choice, checkbox, signature or unknown
+     options   the printed choices, if this is a choice field
+     has_value whether something is already filled in
+     notes     anything about how the field is laid out that a confused
+               person would need - e.g. "circle one of four", "tick box".
+               NEVER put user data here.
+  focus_label  the label of the field the camera is pointed at; omit it if
+               the photo is of the whole page
+  confidence   0.0 to 1.0 - how sure you are you read this form correctly
 
 GRANULARITY — be consistent about what counts as one field, because two
 photographs of the same page should produce the same list:
@@ -120,6 +151,7 @@ def build_agent() -> LlmAgent:
             "asks for, never the values filled in."
         ),
         instruction=INSTRUCTION,
+        output_schema=OUTPUT_SCHEMA,
         # Thinking off for this agent only. Measured over 5 runs on the same
         # dense page: p50 10.9s -> 8.6s, and the tail collapses from 19.5s to
         # 9.1s, which is what the user actually feels.

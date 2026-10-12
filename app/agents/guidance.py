@@ -62,20 +62,41 @@ Rules:
    the action "ask". Guessing a next step on a legal form is worse than
    admitting you lost the thread.
 
-Return ONLY a JSON object, no prose and no code fence:
+What each field of your answer means:
 
-{
-  "step": "the one next thing, addressed to the person, one or two sentences",
-  "field_key": "the key of the field this step is about (the fNN value from
-                the list you were given), or null",
-  "action": one of: read, enter, choose, check, ask, sign, consent, submit, done
-  "why": "one short sentence on why this step matters, or null",
-  "confidence": 0.0 to 1.0
-}
-
-Use the key, not the label. Labels repeat on this form - the applicant and
-their family member both have a "Name" and a "Mobile Number" field.
+  step        the one next thing, addressed to the person, one or two
+              sentences
+  field_key   the key of the field this step is about - the fNN value from
+              the list you were given. Use the KEY, not the label: labels
+              repeat on this form, where the applicant and their family
+              member both have a "Name" and a "Mobile Number" field. Omit
+              it if the step is not about one particular field.
+  action      one of: read, enter, choose, check, ask, sign, consent,
+              submit, done
+  why         one short sentence on why this step matters; omit if obvious
+  confidence  0.0 to 1.0
 """
+
+# Enforced by the decoder rather than requested in the prompt - see the note
+# in app/agents/field_explainer.py. An unparseable reply here costs the user
+# their next step, which is the whole product.
+#
+# `action` is an enum on purpose. The confidence gate matches on this exact
+# vocabulary, so a value outside it is a safety question, not a typo: see
+# ACTION_KINDS above and the fallback in next_step() that drops confidence
+# to zero if one ever arrives anyway. Belt and braces, deliberately.
+OUTPUT_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "step": {"type": "STRING"},
+        "field_key": {"type": "STRING", "nullable": True},
+        "action": {"type": "STRING", "enum": sorted(ACTION_KINDS)},
+        "why": {"type": "STRING", "nullable": True},
+        "confidence": {"type": "NUMBER"},
+    },
+    "required": ["step", "action", "confidence"],
+    "propertyOrdering": ["step", "field_key", "action", "why", "confidence"],
+}
 
 
 @dataclass
@@ -98,6 +119,7 @@ def build_agent() -> LlmAgent:
             "so the gate can judge it."
         ),
         instruction=INSTRUCTION,
+        output_schema=OUTPUT_SCHEMA,
     )
 
 
